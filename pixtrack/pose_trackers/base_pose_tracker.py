@@ -1,3 +1,5 @@
+import tqdm
+
 class PoseTracker:
     def __init__(self):
         return
@@ -11,23 +13,23 @@ class PoseTracker:
     def get_query_frame_iterator(self):
         raise NotImplementedError
 
-    def update_reference_frames(self):
+    def update_reference_images(self):
         raise NotImplementedError
 
     def run_single_frame(self, frame):
         # Get new pose
-        pose_success = self.update_pose(frame)
+        pose_success = self.refine(frame)
 
         # Relocalize if needed
         if not pose_success:
             self.relocalize(frame)
 
-        # Update reference frames
-        self.update_reference_frames()
+        # Update reference images
+        self.update_reference_images()
 
-    def run(self):
-        frame_iterator = self.get_query_frame_iterator()
-        for frame in frame_iterator:
+    def run(self, query_path):
+        frame_iterator = self.get_query_frame_iterator(query_path)
+        for frame in tqdm.tqdm(frame_iterator):
             self.run_single_frame(frame)
         return
 
