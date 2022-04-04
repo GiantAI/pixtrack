@@ -7,3 +7,6 @@
 [submodule "Hierarchical-Localization"]
 	path = Hierarchical-Localization
 	url = https://github.com/cvg/Hierarchical-Localization.git
+[submodule "pixel-perfect-sfm"]
+	path = pixel-perfect-sfm
+	url = https://github.com/cvg/pixel-perfect-sfm.git
