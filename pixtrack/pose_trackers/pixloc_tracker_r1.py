@@ -101,7 +101,7 @@ class PixLocPoseTrackerR1(PoseTracker):
     def save_poses(self):
         path = os.path.join(self.eval_path, 'poses_PixLocPoseTrackerR1.pkl')
         with open(path, 'wb') as f:
-            pkl.dump(rets, f)
+            pkl.dump(self.pose_history, f)
 
 if __name__ == '__main__':
     exp_name = 'IMG_3813'
