@@ -5,6 +5,9 @@ class PoseTracker:
     def relocalize(self):
         raise NotImplementedError
 
+    def refine(self):
+        raise NotImplementedError
+
     def get_query_frame_iterator(self):
         raise NotImplementedError
 
