@@ -36,6 +36,7 @@ class PixLocPoseTrackerR1(PoseTracker):
                                'do_pose_approximation': False,
                               },
                 }
+        import pdb; pdb.set_trace()
         paths = default_paths.add_prefixes(data_path, 
                                            loc_path, 
                                            eval_path)
@@ -87,4 +88,16 @@ class PixLocPoseTrackerR1(PoseTracker):
     def get_query_frame_iterator(self, image_folder):
         iterator = ImagePathStreamer(image_folder)
         return iterator
+
+if __name__ == '__main__':
+    data_path = '~/code/pixloc/datasets/Gimble'
+    eval_path = '~/code/pixloc/datasets/Gimble'
+    loc_path = '~/code/pixloc/outputs/hloc/Gimble'
+    tracker = PixLocPoseTrackerR1(data_path=data_path,
+                                  eval_path=eval_path,
+                                  loc_path=loc_path)
+    import pdb; pdb.set_trace()
+    query_path = os.path.join(data_path, 'query', 'IMG_3813')
+    tracker.run(query_path)
+    print('Done')
 
