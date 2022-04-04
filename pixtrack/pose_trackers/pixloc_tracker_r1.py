@@ -44,8 +44,9 @@ class PixLocPoseTrackerR1(PoseTracker):
                                            Path(loc_path), 
                                            Path(eval_path))
         self.localizer = PoseTrackerLocalizer(paths, conf)
+        self.eval_path = eval_path
         self.covis = extract_covisibility(paths.reference_sfm)
-        self.pose_history = []
+        self.pose_history = {}
         self.cold_start = True
         self.pose = None
         self.reference_images = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
@@ -87,20 +88,33 @@ class PixLocPoseTrackerR1(PoseTracker):
                                 pose_init,
                                 reference_images)
         success = ret['success']
+        if success:
+            self.pose = ret['T_refined']
+            img_name = os.path.basename(query)
+            self.pose_history[img_name] = ret
         return success
 
     def get_query_frame_iterator(self, image_folder):
         iterator = ImagePathIterator(image_folder)
         return iterator
 
+    def save_poses(self):
+        path = os.path.join(self.eval_path, 'poses_PixLocPoseTrackerR1.pkl')
+        with open(path, 'wb') as f:
+            pkl.dump(rets, f)
+
 if __name__ == '__main__':
+    exp_name = 'IMG_3813'
     data_path = '/home/prajwal.chidananda/code/pixloc/datasets/Gimble'
-    eval_path = '/home/prajwal.chidananda/code/pixloc/datasets/Gimble'
+    eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
     loc_path =  '/home/prajwal.chidananda/code/pixloc/outputs/hloc/Gimble'
+    if not os.path.isdir(eval_path):
+        os.makedirs(eval_path)
     tracker = PixLocPoseTrackerR1(data_path=data_path,
                                   eval_path=eval_path,
                                   loc_path=loc_path)
-    query_path = os.path.join(data_path, 'query', 'IMG_3813')
+    query_path = os.path.join(data_path, 'query', exp_name)
     tracker.run(query_path)
+    tracker.save_poses()
     print('Done')
 
