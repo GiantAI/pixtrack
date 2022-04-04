@@ -4,3 +4,6 @@
 [submodule "instant-ngp"]
 	path = instant-ngp
 	url = https://github.com/NVlabs/instant-ngp.git
+[submodule "Hierarchical-Localization"]
+	path = Hierarchical-Localization
+	url = https://github.com/cvg/Hierarchical-Localization.git
