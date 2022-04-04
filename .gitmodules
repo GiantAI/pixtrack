@@ -1,0 +1,3 @@
+[submodule "pixloc"]
+	path = pixloc
+	url = https://github.com/cvg/pixloc.git
