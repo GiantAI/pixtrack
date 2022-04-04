@@ -44,15 +44,20 @@ class PixLocPoseTrackerR1(PoseTracker):
         self.pose_history = []
         self.cold_start = True
         self.pose = None
+        self.reference_frames = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
 
     def relocalize(self):
         if self.cold_start:
             self.camera = self.get_query_camera(query)
             self.cold_start = False
+        ref_img = self.localizer.model3d.dbs[reference_images[0]]
+        pose_init = Pose.from_Rt(ref_img.qvec2rotmat(),
+                                 ref_img.tvec)
+        self.pose = pose_init
         return 
 
     def update_reference_frames(self):
-        reference_frames = []
+        reference_frames = self.reference_frames
         return reference_frames
 
     def get_query_camera(self, query):
@@ -66,11 +71,15 @@ class PixLocPoseTrackerR1(PoseTracker):
 
     def refine(self, query):
         if self.cold_start:
-            self.camera = self.get_query_camera(query)
-            self.cold_start = False
+            self.relocalize()
+            return True
         reference_images = self.update_reference_frames()
-        ret = self.localizer.run_query(query, 
+        ref_img = self.localizer.model3d.dbs[reference_images[0]]
+        translation = self.pose.numpy()[1]
+        pose_init = Pose.from_Rt(ref_img.qvec2rotmat(), translation)
+        ret = self.localizer.run_query(query,
                                 self.camera,
+                                pose_init,
                                 reference_images[0])
         success = ret['success']
         return success
