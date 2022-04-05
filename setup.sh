@@ -24,3 +24,4 @@ cmake --build build --config RelWithDebInfo -j 16
 
 cd $ROOT
 export PYTHONPATH=$PYTHONPATH:$ROOT
+export PROJECT_ROOT=$ROOT

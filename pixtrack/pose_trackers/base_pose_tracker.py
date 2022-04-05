@@ -13,7 +13,7 @@ class PoseTracker:
     def get_query_frame_iterator(self):
         raise NotImplementedError
 
-    def update_reference_images(self):
+    def update_reference_ids(self):
         raise NotImplementedError
 
     def run_single_frame(self, frame):
@@ -25,7 +25,7 @@ class PoseTracker:
             self.relocalize(frame)
 
         # Update reference images
-        self.update_reference_images()
+        self.update_reference_ids()
 
     def run(self, query_path):
         frame_iterator = self.get_query_frame_iterator(query_path)

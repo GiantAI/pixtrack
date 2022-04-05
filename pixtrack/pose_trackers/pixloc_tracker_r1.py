@@ -50,21 +50,21 @@ class PixLocPoseTrackerR1(PoseTracker):
         self.pose_history = {}
         self.cold_start = True
         self.pose = None
-        self.reference_images = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
+        self.reference_ids = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
 
     def relocalize(self, query):
         if self.cold_start:
             self.camera = self.get_query_camera(query)
             self.cold_start = False
-        ref_img = self.localizer.model3d.dbs[self.reference_images[0]]
+        ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
         pose_init = Pose.from_Rt(ref_img.qvec2rotmat(),
                                  ref_img.tvec)
         self.pose = pose_init
         return 
 
-    def update_reference_images(self):
-        reference_images = self.reference_images
-        return reference_images
+    def update_reference_ids(self):
+        reference_ids = self.reference_ids
+        return reference_ids
 
     def get_query_camera(self, query):
         camera = infer_camera_from_image(query)
@@ -80,16 +80,19 @@ class PixLocPoseTrackerR1(PoseTracker):
         if self.cold_start:
             self.relocalize(query)
             return True
-        reference_images = self.update_reference_images()
-        ref_img = self.localizer.model3d.dbs[reference_images[0]]
+        reference_ids = self.update_reference_ids()
+        ref_img = self.localizer.model3d.dbs[reference_ids[0]]
         translation = self.pose.numpy()[1]
         pose_init = Pose.from_Rt(ref_img.qvec2rotmat(), translation)
         ret = self.localizer.run_query(query,
                                 self.camera,
                                 pose_init,
-                                reference_images)
+                                reference_ids)
         success = ret['success']
         if success:
+            ret['camera'] = self.camera
+            ret['reference_ids'] = reference_ids
+            ret['query_path'] = query
             self.pose = ret['T_refined']
             img_name = os.path.basename(query)
             self.pose_history[img_name] = ret
@@ -100,7 +103,7 @@ class PixLocPoseTrackerR1(PoseTracker):
         return iterator
 
     def save_poses(self):
-        path = os.path.join(self.eval_path, 'poses_PixLocPoseTrackerR1.pkl')
+        path = os.path.join(self.eval_path, 'poses.pkl')
         with open(path, 'wb') as f:
             pkl.dump(self.pose_history, f)
 
