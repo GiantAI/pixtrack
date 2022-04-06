@@ -1,7 +1,7 @@
 import sys
 import os
-#sys.path.append(os.path.join(os.environ['PROJECT_ROOT'], 'instant-ngp/scripts/'))
-sys.path.append('/home/prajwal.chidananda/code/instant-ngp/scripts/')
+sys.path.append(os.path.join(os.environ['PROJECT_ROOT'], 'instant-ngp/scripts/'))
+#sys.path.append('/home/prajwal.chidananda/code/instant-ngp/scripts/')
 import commentjson as json
 from common import *
 from scenes import scenes_nerf
@@ -30,7 +30,7 @@ def initialize_ingp(snapshot_path,
     testbed.nerf.render_with_camera_distortion = True
     testbed.background_color = [0., 0., 0., 1.]
     testbed.snap_to_pixel_centers = True
-    testbed.nerf.rendering_min_alpha = 1e-4 * 10
+    #testbed.nerf.rendering_min_alpha = 1e-4 * 10
     testbed.fov_axis = 0
     testbed.shall_train = False
     testbed.render_aabb.min = aabb[0]

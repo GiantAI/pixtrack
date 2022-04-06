@@ -21,6 +21,7 @@ export PATH="/usr/local/cuda-11.1/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/cuda-11.1/lib64:$LD_LIBRARY_PATH"
 cmake . -B build
 cmake --build build --config RelWithDebInfo -j 16
+export PATH="$PATH:$PWD/scripts"
 
 cd $ROOT
 export PYTHONPATH=$PYTHONPATH:$ROOT
