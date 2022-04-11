@@ -62,4 +62,5 @@ To run object tracking, do this:
 ```bash
 cd ~/pixtrack
 python3 pixtrack/pose_trackers/pixloc_tracker_r1.py
+python3 pixtrack/visualization/run_vis_on_poses.py
 ```
