@@ -60,5 +60,6 @@ python3 create_nerf_dataset_and_sfm.py
 To run object tracking, do this:
 
 ```bash
+cd ~/pixtrack
 python3 pixtrack/pose_trackers/pixloc_tracker_r1.py
 ```
