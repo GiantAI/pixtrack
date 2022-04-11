@@ -1,8 +1,5 @@
 # PixTrack
 A 6DOF object pose tracker based on ingp, hloc, pixloc and pixsfm lines of work.
----
-
-## Capabilities
 
 With `pixtrack`, you can:
 
