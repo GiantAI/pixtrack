@@ -17,7 +17,6 @@ cpp_out.__enter__()
 
 images = Path('pixel-perfect-sfm/datasets/gimble_04MAR2022')
 outputs = Path('pixel-perfect-sfm/outputs/gimble_04MAR2022')
-#!rm -rf $outputs
 sfm_pairs = outputs / 'pairs-sfm.txt'
 loc_pairs = outputs / 'pairs-loc.txt'
 features = outputs / 'features.h5'

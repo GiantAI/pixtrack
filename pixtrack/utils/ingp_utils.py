@@ -26,7 +26,7 @@ def initialize_ingp(snapshot_path,
     testbed.nerf.sharpen = 0.
     testbed.load_snapshot(snapshot_path)
     testbed.nerf.render_with_camera_distortion = True
-    testbed.background_color = [0., 0., 0., 1.]
+    testbed.background_color = [1., 1., 1., 1.]
     testbed.snap_to_pixel_centers = True
     #testbed.nerf.rendering_min_alpha = 1e-4 * 10
     testbed.fov_axis = 0
