@@ -109,9 +109,9 @@ class PixLocPoseTrackerR1(PoseTracker):
 
 if __name__ == '__main__':
     exp_name = 'IMG_3813'
-    data_path = '/home/prajwal.chidananda/code/pixloc/datasets/Gimble'
+    data_path = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'
     eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
-    loc_path =  '/home/prajwal.chidananda/code/pixloc/outputs/hloc/Gimble'
+    loc_path =  '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
     tracker = PixLocPoseTrackerR1(data_path=data_path,

@@ -89,10 +89,10 @@ def add_reference_images(base_image, recon, ref_ids, sfm_images_dir, s=0.25):
 
 if __name__ == '__main__':
     poses_path = 'outputs/IMG_3813/poses.pkl'
-    sfm_dir = '/home/prajwal.chidananda/code/pixloc/outputs/hloc/Gimble/sfm'
+    sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022/sfm'
     nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
-    nerf2sfm_path = '/home/prajwal.chidananda/code/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'
-    sfm_images_dir = '/home/prajwal.chidananda/code/pixloc/datasets/Gimble'
+    nerf2sfm_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'
+    sfm_images_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'
     out_dir = 'outputs/IMG_3813'
     parser = argparse.ArgumentParser()
     parser.add_argument('--poses', default=poses_path)
