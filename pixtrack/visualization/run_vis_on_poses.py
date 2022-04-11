@@ -70,7 +70,7 @@ def add_pose_axes(image, camera, pose, axes_center=[0.1179, 1.1538, 1.3870, 0.])
     return result_img
     
 def blend_images(query_image, nerf_image):
-    #query_image = cv2.cvtColor(query_image, cv2.COLOR_BGR2RGB)
+    nerf_image = cv2.cvtColor(nerf_image, cv2.COLOR_BGR2RGB)
     blend_img = query_image * 0.5 + nerf_image * 0.5
     blend_img = blend_img.astype(np.uint8)
     return blend_img

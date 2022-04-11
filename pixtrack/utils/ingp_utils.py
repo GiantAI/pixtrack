@@ -1,7 +1,6 @@
 import sys
 import os
-sys.path.append(os.path.join(os.environ['PROJECT_ROOT'], 'instant-ngp/scripts/'))
-#sys.path.append('/home/prajwal.chidananda/code/instant-ngp/scripts/')
+sys.path.append(os.path.join(os.environ['PROJECT_ROOT'], 'instant-ngp/scripts'))
 import commentjson as json
 from common import *
 from scenes import scenes_nerf
@@ -21,7 +20,6 @@ def initialize_ingp(snapshot_path,
     configs_dir = os.path.join(ROOT_DIR, 'configs', 'nerf')
     scenes = scenes_nerf
     base_network = os.path.join(configs_dir, 'base.json')
-    #base_network = '/home/prajwal.chidananda/code/instant-ngp/configs/nerf/base.json'
     network = base_network
     network_stem = os.path.splitext(os.path.basename(network))[0]
     testbed = ngp.Testbed(mode)
@@ -70,4 +68,5 @@ def nerf_to_sfm_pose(nerf2sfm, nerf_pose):
     p2 = p2[[1,0,2,3],:]
     p2 = p2 @ rotate_over_x
     return p2
+
 
