@@ -53,6 +53,8 @@ source train_ingp_nerf.sh
 python3 create_nerf_dataset_and_sfm.py
 ```
 
+---
+
 ## Run object tracking
 To run object tracking, do this:
 
