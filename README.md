@@ -1,45 +1,65 @@
-**Edit a file, create a new file, and clone from Bitbucket in under 2 minutes**
+# PixTrack
+A 6DOF object pose tracker based on ingp, hloc, pixloc and pixsfm lines of work.
 
-When you're done, you can delete the content in this README and update the file with details for others getting started with your repository.
+With `pixtrack`, you can:
 
-*We recommend that you open this README in another tab as you perform the tasks below. You can [watch our video](https://youtu.be/0ocf7u76WSo) for a full demo of all the steps in this tutorial. Open the video in a new tab to avoid leaving Bitbucket.*
-
----
-
-## Edit a file
-
-You’ll start by editing this README file to learn how to edit a file in Bitbucket.
-
-1. Click **Source** on the left side.
-2. Click the README.md link from the list of files.
-3. Click the **Edit** button.
-4. Delete the following text: *Delete this line to make a change to the README from Bitbucket.*
-5. After making your change, click **Commit** and then **Commit** again in the dialog. The commit page will open and you’ll see the change you just made.
-6. Go back to the **Source** page.
+1. Create an object NeRF and a corresponding SFM model.
+2. Run 6DOF object tracking on a video file and visualize the same.
 
 ---
 
-## Create a file
+## Getting Started: One time setup
 
-Next, you’ll add a new file to this repository.
+Follow these steps:
 
-1. Click the **New file** button at the top of the **Source** page.
-2. Give the file a filename of **contributors.txt**.
-3. Enter your name in the empty file space.
-4. Click **Commit** and then **Commit** again in the dialog.
-5. Go back to the **Source** page.
-
-Before you move on, go ahead and explore the repository. You've already seen the **Source** page, but check out the **Commits**, **Branches**, and **Settings** pages.
+```bash
+ssh 10.0.2.113
+git clone git@bitbucket.org:ai_giant_global/pixtrack.git
+cd pixtrack
+docker build -t pixtrack .
+docker run -it --rm -p 8090:8090 \
+				-e HOME='/home/$USER' \
+				-w /home/$USER \
+				-v /home/$USER/:/home/$USER/ \
+				-v ~/.ssh:/root/.ssh \
+				--network host \
+				--gpus '"device=0"' \
+				--shm-size=256gb \
+				pixtrack \
+				bash
+cd pixtrack
+source setup.sh
+python3 -m pixloc.download --select checkpoints
+```
 
 ---
 
-## Clone a repository
+## Preliminary steps: Create object tracking assets
 
-Use these steps to clone from SourceTree, our client for using the repository command-line free. Cloning allows you to work on your files locally. If you don't yet have SourceTree, [download and install first](https://www.sourcetreeapp.com/). If you prefer to clone from the command line, see [Clone a repository](https://confluence.atlassian.com/x/4whODQ).
+Before you can run object pose tracking, you need to do the following:
 
-1. You’ll see the clone button under the **Source** heading. Click that button.
-2. Now click **Check out in SourceTree**. You may need to create a SourceTree account or log in.
-3. When you see the **Clone New** dialog in SourceTree, update the destination path and name if you’d like to and then click **Clone**.
-4. Open the directory you just created to see your repository’s files.
+1. Collect object data following the protocol described here.
+2. Create an SfM using the collected images.
+3. Train a NeRF using the images and the SfM.
+4. Create an object SfM using the NeRF.
 
-Now that you're more familiar with your Bitbucket repository, go ahead and add a new file locally. You can [push your change back to Bitbucket with SourceTree](https://confluence.atlassian.com/x/iqyBMg), or you can [add, commit,](https://confluence.atlassian.com/x/8QhODQ) and [push from the command line](https://confluence.atlassian.com/x/NQ0zDQ).
+Once data is collected (step 1), run the following (steps 2-4):
+```bash
+cd ~/pixtrack
+source setup.sh
+python3 run_reconstruction.py 
+python3 pixtrack/utils/colmap2ingp.py 
+source train_ingp_nerf.sh 
+python3 create_nerf_dataset_and_sfm.py
+```
+
+---
+
+## Run object tracking
+To run object tracking, do this:
+
+```bash
+cd ~/pixtrack
+python3 pixtrack/pose_trackers/pixloc_tracker_r1.py
+python3 pixtrack/visualization/run_vis_on_poses.py
+```
