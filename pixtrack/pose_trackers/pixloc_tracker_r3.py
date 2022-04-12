@@ -9,7 +9,7 @@ from pixloc.pixlib.geometry import Pose
 from pixloc.pixlib.datasets.view import read_image
 from scipy.spatial.transform import Rotation as R
 
-class PixLocPoseTrackerR3(PixLocPoseTrackerR1):
+class PixLocPoseTrackerR3(PixLocPoseTrackerR2):
     def refine(self, query):
         if self.cold_start:
             self.relocalize(query)
