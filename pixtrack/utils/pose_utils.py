@@ -1,6 +1,14 @@
 import numpy as np
 import pycolmap
+from scipy.spatial.transform import Rotation as R
 
+
+def geodesic_distance_for_rotations(R1, R2):
+    Rd = R1 @ R2.T
+    rot = R.from_matrix(Rd)
+    rot_aa = rot.as_rotvec()
+    angle = np.linalg.norm(rot_aa)
+    return angle
 
 def get_world_in_camera_from_pixpose(pixpose):
     pixpose = pixpose.numpy()

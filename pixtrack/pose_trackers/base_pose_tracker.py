@@ -1,4 +1,5 @@
 import tqdm
+import numpy as np
 
 class PoseTracker:
     def __init__(self):
@@ -27,9 +28,13 @@ class PoseTracker:
         # Update reference images
         self.update_reference_ids()
 
-    def run(self, query_path):
+    def run(self, query_path, max_frames=np.inf):
+        count = 0
         frame_iterator = self.get_query_frame_iterator(query_path)
         for frame in tqdm.tqdm(frame_iterator):
             self.run_single_frame(frame)
+            count += 1
+            if count >= max_frames:
+                break
         return
 
