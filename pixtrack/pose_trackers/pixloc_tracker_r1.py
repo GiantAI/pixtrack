@@ -95,7 +95,7 @@ class PixLocPoseTrackerR1(PoseTracker):
             ret['query_path'] = query
             self.pose = ret['T_refined']
             img_name = os.path.basename(query)
-            self.pose_history[img_name] = ret
+        self.pose_history[img_name] = ret
         return success
 
     def get_query_frame_iterator(self, image_folder):

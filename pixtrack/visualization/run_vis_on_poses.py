@@ -2,7 +2,7 @@ import os
 import pickle as pkl
 import numpy as np
 import argparse
-from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose
+from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image
 from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
 import pycolmap
 import cv2
@@ -85,10 +85,31 @@ def add_reference_images(base_image, recon, ref_ids, sfm_images_dir, s=0.25):
                int(ref_img.shape[0] * scale))
     ref_img = cv2.resize(ref_img, ref_dim, interpolation=cv2.INTER_AREA)
     base_image[:ref_dim[1], :ref_dim[0]] = ref_img
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fontScale = 0.8
+    color = (255, 0, 0)
+    thickness = 2
+    org = (5, ref_dim[1] -10)
+    name_t = names[0].split('/')[1].split('.')[0]
+    name_t = 'Reference image: %s' % name_t
+    overlay_img = cv2.putText(base_image, name_t, org, font, 
+                   fontScale, color, thickness, cv2.LINE_AA)
+    return base_image
+
+def add_normalized_query_image(base_image, path, angle, s=0.25):
+    q_img = cv2.imread(path, -1)
+    q_img = rotate_image(q_img, -angle)
+    base_shape = base_image.shape
+    scale = base_shape[1] * s / q_img.shape[1]
+    q_dim = (int(q_img.shape[1] * scale),
+              int(q_img.shape[0] * scale))
+    q_img = cv2.resize(q_img, q_dim, interpolation=cv2.INTER_AREA)
+    base_image[-q_dim[1]:, :q_dim[0]] = q_img
     return base_image
 
 if __name__ == '__main__':
-    exp = 'IMG_4065'
+    exp = 'IMG_4071'
     poses_path = 'outputs/%s/poses.pkl' % exp
     sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022/sfm'
     nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
@@ -126,6 +147,9 @@ if __name__ == '__main__':
         result_img = blend_images(query_img, nerf_img)
         result_img = add_reference_images(result_img, recon, 
                                         ref_ids, args.sfm_images_dir)
+        if 'tracked_roll' in pose_stream[name_q]:
+            tracked_roll = pose_stream[name_q]['tracked_roll']
+            result_img = add_normalized_query_image(result_img, path_q, tracked_roll)
         result_img = add_pose_axes(result_img, camera, cIw_sfm)
 
         result_name = 'result_%s' % os.path.basename(path_q)

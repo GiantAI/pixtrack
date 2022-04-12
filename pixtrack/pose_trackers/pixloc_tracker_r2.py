@@ -25,7 +25,7 @@ class PixLocPoseTrackerR2(PixLocPoseTrackerR1):
             gdists[ref] = gdist
 
         reference_ids = sorted(gdists, key=lambda x: gdists[x])
-        K = 2
+        K = 1
         self.reference_ids = reference_ids[:K]
         return self.reference_ids
 
