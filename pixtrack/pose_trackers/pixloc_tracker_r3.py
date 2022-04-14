@@ -42,9 +42,9 @@ class PixLocPoseTrackerR3(PixLocPoseTrackerR2):
         if success:
             self.pose = ret['T_refined']
             ret = self.post_opt_rotation(ret, best_ref_id)
-            ret['camera'] = self.camera
-            ret['reference_ids'] = reference_ids
-            ret['query_path'] = query
+        ret['camera'] = self.camera
+        ret['reference_ids'] = reference_ids
+        ret['query_path'] = query
         img_name = os.path.basename(query)
         self.pose_history[img_name] = ret
 
@@ -78,7 +78,7 @@ class PixLocPoseTrackerR3(PixLocPoseTrackerR2):
         return ret
 
 if __name__ == '__main__':
-    exp_name = 'IMG_4071'
+    exp_name = 'IMG_4117'
     data_path = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'
     eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
     loc_path =  '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'

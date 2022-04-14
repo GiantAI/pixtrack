@@ -55,12 +55,12 @@ class PixLocPoseTrackerR2(PixLocPoseTrackerR1):
         ret = rets[best_ref_id]
         success = ret['success']
         if success:
-            ret['camera'] = self.camera
-            ret['reference_ids'] = reference_ids
-            ret['query_path'] = query
             self.pose = ret['T_refined']
-            img_name = os.path.basename(query)
-            self.pose_history[img_name] = ret
+        ret['camera'] = self.camera
+        ret['reference_ids'] = reference_ids
+        ret['query_path'] = query
+        img_name = os.path.basename(query)
+        self.pose_history[img_name] = ret
         return success
             
 

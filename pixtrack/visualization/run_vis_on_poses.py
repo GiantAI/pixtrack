@@ -109,7 +109,7 @@ def add_normalized_query_image(base_image, path, angle, s=0.25):
     return base_image
 
 if __name__ == '__main__':
-    exp = 'IMG_4071'
+    exp = 'IMG_4117'
     poses_path = 'outputs/%s/poses.pkl' % exp
     sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022/sfm'
     nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
@@ -137,14 +137,17 @@ if __name__ == '__main__':
         path_q = pose_stream[name_q]['query_path']
         ref_ids = pose_stream[name_q]['reference_ids']
         camera = pose_stream[name_q]['camera']
-        wIc_pix = pose_stream[name_q]['T_refined']
-        cIw_sfm = get_camera_in_world_from_pixpose(wIc_pix)
-        nerf_pose = sfm_to_nerf_pose(nerf2sfm, cIw_sfm)
-        
-        nerf_img = get_nerf_image(testbed, nerf_pose, camera)
-        query_img = get_query_image(path_q)
 
+        query_img = get_query_image(path_q)
+        if 'T_refined' in pose_stream[name_q]:
+            wIc_pix = pose_stream[name_q]['T_refined']
+            cIw_sfm = get_camera_in_world_from_pixpose(wIc_pix)
+            nerf_pose = sfm_to_nerf_pose(nerf2sfm, cIw_sfm)
+            nerf_img = get_nerf_image(testbed, nerf_pose, camera)
+        else:
+            nerf_img = (np.ones(query_img.shape) * 255).astype(np.uint8)
         result_img = blend_images(query_img, nerf_img)
+
         result_img = add_reference_images(result_img, recon, 
                                         ref_ids, args.sfm_images_dir)
         if 'tracked_roll' in pose_stream[name_q]:
