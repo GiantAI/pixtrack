@@ -65,7 +65,7 @@ class PixLocPoseTrackerR2(PixLocPoseTrackerR1):
             
 
 if __name__ == '__main__':
-    exp_name = 'IMG_4065'
+    exp_name = 'debug_1'
     data_path = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'
     eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
     loc_path =  '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'

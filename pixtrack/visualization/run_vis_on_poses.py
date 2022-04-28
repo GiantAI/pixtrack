@@ -68,6 +68,31 @@ def add_pose_axes(image, camera, pose, axes_center=[0.1179, 1.1538, 1.3870, 0.])
     pts_3d = axes @ np.linalg.inv(pose).T[:, :3]
     result_img = draw_axes(image, pts_3d, K)
     return result_img
+
+def draw_points(image, pts_3d, K=np.eye(3), t=15, color=(255, 255, 255)):
+    pts_2d = project_3d_to_2d(pts_3d, K).astype(np.int16)
+    print(pts_2d)
+    for pt_2d in pts_2d:
+        image = cv2.circle(image, pt_2d, radius=0, color=color, thickness=t)
+    return image
+
+def add_object_center(image, camera, pose, object_center=[0.33024578, 1.79926808, 1.71986272]):
+    width, height = camera.size
+    focal = float(camera.f[0])
+
+    u = float(width / 2)
+    v = float(height / 2)
+    K = [[focal, 0., u],
+         [0., focal, v],
+         [0., 0., 1.]]
+    K = np.array(K)
+    object_center = np.array(object_center)
+    object_center = object_center[np.newaxis, :]
+    object_center = np.hstack((object_center, 
+                      np.ones((object_center.shape[0],1))))
+    pts_3d = object_center @ np.linalg.inv(pose).T[:, :3]
+    result_img = draw_points(image, pts_3d, K)
+    return result_img
     
 def blend_images(query_image, nerf_image):
     nerf_image = cv2.cvtColor(nerf_image, cv2.COLOR_BGR2RGB)
@@ -97,9 +122,9 @@ def add_reference_images(base_image, recon, ref_ids, sfm_images_dir, s=0.25):
                    fontScale, color, thickness, cv2.LINE_AA)
     return base_image
 
-def add_normalized_query_image(base_image, path, angle, s=0.25):
+def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
     q_img = cv2.imread(path, -1)
-    q_img = rotate_image(q_img, -angle)
+    q_img = rotate_image(q_img, -angle, center)
     base_shape = base_image.shape
     scale = base_shape[1] * s / q_img.shape[1]
     q_dim = (int(q_img.shape[1] * scale),
@@ -109,7 +134,7 @@ def add_normalized_query_image(base_image, path, angle, s=0.25):
     return base_image
 
 if __name__ == '__main__':
-    exp = 'IMG_4117'
+    exp = 'debug_1'
     poses_path = 'outputs/%s/poses.pkl' % exp
     sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022/sfm'
     nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
@@ -152,8 +177,10 @@ if __name__ == '__main__':
                                         ref_ids, args.sfm_images_dir)
         if 'tracked_roll' in pose_stream[name_q]:
             tracked_roll = pose_stream[name_q]['tracked_roll']
-            result_img = add_normalized_query_image(result_img, path_q, tracked_roll)
+            tracked_center = pose_stream[name_q]['tracked_center']
+            result_img = add_normalized_query_image(result_img, path_q, tracked_roll, tracked_center)
         result_img = add_pose_axes(result_img, camera, cIw_sfm)
+        result_img = add_object_center(result_img, camera, cIw_sfm)
 
         result_name = 'result_%s' % os.path.basename(path_q)
         result_path = os.path.join(args.out_dir, result_name)
