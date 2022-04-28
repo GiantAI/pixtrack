@@ -108,6 +108,7 @@ class PoseTrackerRefiner(BaseRefiner):
             # Compute dense query feature maps
             if image_query is None:
                 image_query = read_image(self.paths.query_images / qname)
+                image_orig = copy.deepcopy(image_query)
             else:
                 image_query = copy.deepcopy(image_orig)
             features_query, scales_query = self.dense_feature_extraction(

@@ -22,7 +22,7 @@ def extract_covisibility(model_path):
     cameras, images, points3D = read_model(model_path)
     pairs = []
     covis_all = {}
-    for image_id, image in tqdm(images.items()):
+    for image_id, image in tqdm.tqdm(images.items()):
         matched = image.point3D_ids != -1
         points3D_covis = image.point3D_ids[matched]
 

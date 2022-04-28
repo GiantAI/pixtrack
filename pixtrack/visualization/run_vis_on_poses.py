@@ -134,12 +134,12 @@ def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
     return base_image
 
 if __name__ == '__main__':
-    exp = 'debug_1'
+    exp = 'IMG_4117'
     poses_path = 'outputs/%s/poses.pkl' % exp
-    sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022/sfm'
+    sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022/aug_sfm'
     nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
     nerf2sfm_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'
-    sfm_images_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022'
+    sfm_images_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
     out_dir = 'outputs/%s' % exp
     parser = argparse.ArgumentParser()
     parser.add_argument('--poses', default=poses_path)
