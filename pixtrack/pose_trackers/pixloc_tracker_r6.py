@@ -3,7 +3,7 @@ import numpy as np
 from pathlib import Path
 
 from pixtrack.pose_trackers.pixloc_tracker_r1 import PixLocPoseTrackerR1
-from pixtrack.utils.pose_utils import geodesic_distance_for_rotations
+from pixtrack.utils.pose_utils import geodesic_distance_for_rotations, get_camera_in_world_from_pixpose
 from pixloc.localization import SimpleTracker
 from pixloc.pixlib.geometry import Pose
 
@@ -11,10 +11,14 @@ from pixtrack.pose_trackers.base_pose_tracker import PoseTracker
 from pixtrack.localization.pixloc_pose_refiners import PoseTrackerLocalizer
 from pixtrack.utils.io import ImagePathIterator
 from pixtrack.utils.hloc_utils import extract_covisibility
+from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
+from pixtrack.visualization.run_vis_on_poses import get_nerf_image
+from pixloc.pixlib.geometry import Camera as PixCamera
 
 from pixloc.utils.data import Paths
+import cv2
 
-class PixLocPoseTrackerR5(PixLocPoseTrackerR1):
+class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
     def __init__(self, data_path, loc_path, eval_path):
         default_paths = Paths(
                             query_images='query/',
@@ -50,7 +54,10 @@ class PixLocPoseTrackerR5(PixLocPoseTrackerR1):
         self.cold_start = True
         self.pose = None
         self.reference_ids = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
-
+        nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
+        nerf2sfm_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'
+        self.nerf2sfm = load_nerf2sfm(nerf2sfm_path)
+        self.testbed = initialize_ingp(nerf_path)
 
     def update_reference_ids(self):
         curr_refs = self.reference_ids
@@ -75,12 +82,22 @@ class PixLocPoseTrackerR5(PixLocPoseTrackerR1):
         self.reference_ids = reference_ids[:K]
         return self.reference_ids
 
+    def get_reference_image(self, pose):
+        cIw = get_camera_in_world_from_pixpose(pose)
+        nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
+        ref_camera = self.localizer.model3d.cameras[1]
+        ref_camera = PixCamera.from_colmap(ref_camera)
+        nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
+        #nerf_img = cv2.cvtColor(nerf_img, cv2.COLOR_BGR2RGB)
+        return nerf_img
+
     def refine(self, query):
         if self.cold_start:
             self.relocalize(query)
             self.cold_start = False
         
         reference_ids = self.update_reference_ids()
+        reference_image = self.get_reference_image(self.pose)
         translation = self.pose.numpy()[1]
         trackers = {}
         rets = {}
@@ -92,7 +109,9 @@ class PixLocPoseTrackerR5(PixLocPoseTrackerR1):
             ret = self.localizer.run_query(query,
                                 self.camera,
                                 pose_init,
-                                [ref_id])
+                                [ref_id],
+                                pose=self.pose,
+                                reference_images_raw=[reference_image])
             rets[ref_id] = ret
             trackers[ref_id] = tracker
             avg_cost = np.mean([x[-1] for x in tracker.costs])
@@ -111,17 +130,17 @@ class PixLocPoseTrackerR5(PixLocPoseTrackerR1):
             
 
 if __name__ == '__main__':
-    exp_name = 'IMG_4341'
+    exp_name = 'IMG_4117'
     data_path = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
     eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
     loc_path =  '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
-    tracker = PixLocPoseTrackerR5(data_path=data_path,
+    tracker = PixLocPoseTrackerR6(data_path=data_path,
                                   eval_path=eval_path,
                                   loc_path=loc_path)
     query_path = os.path.join(data_path, 'query', exp_name)
     tracker.run(query_path, max_frames=np.inf)
-    #tracker.run(query_path, max_frames=200)
+    #tracker.run(query_path, max_frames=9)
     tracker.save_poses()
     print('Done')

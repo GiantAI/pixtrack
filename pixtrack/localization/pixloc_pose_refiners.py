@@ -12,6 +12,7 @@ from pixloc.pixlib.datasets.view import read_image
 import logging
 import numpy as np
 import copy
+import cv2
 logger = logging.getLogger(__name__)
 
 class PoseTrackerLocalizer(Localizer):
@@ -29,9 +30,9 @@ class PoseTrackerLocalizer(Localizer):
             self.conf.refinement, global_descriptors=global_descriptors)
         self.logs = None
 
-    def run_query(self, name: str, camera: Camera, pose_init: Pose, reference_images: int, image_query: np.ndarray = None):
+    def run_query(self, name: str, camera: Camera, pose_init: Pose, reference_images: int, image_query: np.ndarray = None, pose: Pose = None, reference_images_raw: List[np.ndarray] = None):
         loc = None if self.logs is None else self.logs[name]
-        ret = self.refiner.refine(name, camera, pose_init, reference_images, loc=loc, image_query=image_query)
+        ret = self.refiner.refine(name, camera, pose_init, reference_images, loc=loc, image_query=image_query, pose=pose, reference_images=reference_images_raw)
         return ret
 
 class PoseTrackerRefiner(BaseRefiner):
@@ -48,7 +49,8 @@ class PoseTrackerRefiner(BaseRefiner):
 
     def refine(self, qname: str, qcamera: Camera, pose_init: Pose, 
                dbids: List[int], loc: Optional[Dict] = None, 
-               image_query: np.ndarray = None) -> Dict:
+               image_query: np.ndarray = None, pose: Pose = None, 
+               reference_images: List[np.ndarray] = None) -> Dict:
 
         fail = {'success': False, 'T_init': pose_init, 'dbids': dbids}
         inliers = None
@@ -63,7 +65,7 @@ class PoseTrackerRefiner(BaseRefiner):
             return fail
 
         ret = self.refine_query_pose(qname, qcamera, pose_init, p3did_to_dbids,
-                                     self.conf.multiscale, image_query)
+                                     self.conf.multiscale, image_query, pose, reference_images)
      
         ret = {**ret, 'dbids': dbids}
         return ret
@@ -71,15 +73,26 @@ class PoseTrackerRefiner(BaseRefiner):
     def refine_query_pose(self, qname: str, qcamera: Camera, T_init: Pose,
                           p3did_to_dbids: Dict[int, List],
                           multiscales: Optional[List[int]] = None, 
-                          image_query: np.ndarray = None) -> Dict:
+                          image_query: np.ndarray = None, 
+                          pose: Pose = None, 
+                          reference_images: List[np.ndarray] = None) -> Dict:
 
         dbid_to_p3dids = self.model3d.get_dbid_to_p3dids(p3did_to_dbids)
         if multiscales is None:
             multiscales = [1]
 
         rnames = [self.model3d.dbs[i].name for i in dbid_to_p3dids.keys()]
-        images_ref = [read_image(self.paths.reference_images / n)
-                      for n in rnames]
+
+        #cv2.imwrite('testn.jpg', reference_images[0])
+        if reference_images is not None:
+            images_ref = reference_images
+        else:
+            images_ref = [read_image(self.paths.reference_images / n)
+                  for n in rnames] 
+
+            #cv2.imwrite('testr.jpg', images_ref[0])
+            print('Reading reference images from disk!!')
+        #cv2.imwrite('testd.jpg', reference_images[0] - images_ref[0])
 
         image_orig = image_query
         for image_scale in multiscales:
@@ -92,7 +105,7 @@ class PoseTrackerRefiner(BaseRefiner):
                 features_ref_dense, scales_ref = self.dense_feature_extraction(
                         images_ref[idx], rnames[idx], image_scale)
                 dbid_p3did_to_feats[dbid] = self.interp_sparse_observations(
-                        features_ref_dense, scales_ref, dbid, p3dids)
+                        features_ref_dense, scales_ref, dbid, p3dids, pose)
                 del features_ref_dense
 
             p3did_to_feat = self.aggregate_features(
@@ -124,3 +137,41 @@ class PoseTrackerRefiner(BaseRefiner):
                 T_init = ret['T_refined']
         return ret
 
+    def interp_sparse_observations(self,
+                                   feature_maps: List[torch.Tensor],
+                                   feature_scales: List[float],
+                                   image_id: float,
+                                   p3dids: List[int],
+                                   pose: Pose = None) -> Dict[int, torch.Tensor]:
+        image = self.model3d.dbs[image_id]
+        camera = Camera.from_colmap(self.model3d.cameras[image.camera_id])
+        T_w2cam = Pose.from_colmap(image)
+        #print(T_w2cam.numpy())
+        #print(pose.numpy())
+        if pose is not None:
+            T_w2cam = copy.deepcopy(pose)
+        p3d = np.array([self.model3d.points3D[p3did].xyz for p3did in p3dids])
+        p3d_cam = T_w2cam * p3d
+
+        # interpolate sparse descriptors and store
+        feature_obs = []
+        masks = []
+        for i, (feats, sc) in enumerate(zip(feature_maps, feature_scales)):
+            p2d_feat, valid = camera.scale(sc).world2image(p3d_cam)
+            opt = self.optimizer
+            opt = opt[len(opt)-i-1] if isinstance(opt, (tuple, list)) else opt
+            obs, mask, _ = opt.interpolator(feats, p2d_feat.to(feats))
+            assert not obs.requires_grad
+            feature_obs.append(obs)
+            masks.append(mask & valid.to(mask))
+
+        mask = torch.all(torch.stack(masks, dim=0), dim=0)
+
+        # We can't stack features because they have different # of channels
+        feature_obs = [[feature_obs[i][j] for i in range(len(feature_maps))]
+                       for j in range(len(p3dids))]  # N x K x D
+
+        feature_dict = {p3id: feature_obs[i]
+                        for i, p3id in enumerate(p3dids) if mask[i]}
+
+        return feature_dict
