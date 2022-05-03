@@ -134,7 +134,7 @@ def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
     return base_image
 
 if __name__ == '__main__':
-    exp = 'IMG_4117'
+    exp = 'IMG_4341'
     poses_path = 'outputs/%s/poses.pkl' % exp
     sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022/aug_sfm'
     nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'

@@ -83,16 +83,12 @@ class PoseTrackerRefiner(BaseRefiner):
 
         rnames = [self.model3d.dbs[i].name for i in dbid_to_p3dids.keys()]
 
-        #cv2.imwrite('testn.jpg', reference_images[0])
         if reference_images is not None:
             images_ref = reference_images
         else:
             images_ref = [read_image(self.paths.reference_images / n)
                   for n in rnames] 
-
-            #cv2.imwrite('testr.jpg', images_ref[0])
             print('Reading reference images from disk!!')
-        #cv2.imwrite('testd.jpg', reference_images[0] - images_ref[0])
 
         image_orig = image_query
         for image_scale in multiscales:
@@ -146,8 +142,6 @@ class PoseTrackerRefiner(BaseRefiner):
         image = self.model3d.dbs[image_id]
         camera = Camera.from_colmap(self.model3d.cameras[image.camera_id])
         T_w2cam = Pose.from_colmap(image)
-        #print(T_w2cam.numpy())
-        #print(pose.numpy())
         if pose is not None:
             T_w2cam = copy.deepcopy(pose)
         p3d = np.array([self.model3d.points3D[p3did].xyz for p3did in p3dids])

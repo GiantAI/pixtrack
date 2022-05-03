@@ -88,7 +88,6 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
         ref_camera = self.localizer.model3d.cameras[1]
         ref_camera = PixCamera.from_colmap(ref_camera)
         nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
-        #nerf_img = cv2.cvtColor(nerf_img, cv2.COLOR_BGR2RGB)
         return nerf_img
 
     def refine(self, query):
@@ -130,7 +129,7 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
             
 
 if __name__ == '__main__':
-    exp_name = 'IMG_4117'
+    exp_name = 'IMG_4341'
     data_path = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
     eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
     loc_path =  '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
@@ -141,6 +140,5 @@ if __name__ == '__main__':
                                   loc_path=loc_path)
     query_path = os.path.join(data_path, 'query', exp_name)
     tracker.run(query_path, max_frames=np.inf)
-    #tracker.run(query_path, max_frames=9)
     tracker.save_poses()
     print('Done')
