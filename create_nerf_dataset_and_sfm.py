@@ -70,19 +70,25 @@ def triangulate_nerf_views(ref_sfm_path, out_dir):
     return model
 
 if __name__ == '__main__':
+    obj = Path(os.environ['OBJECT'])
+    out_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / obj
+    ref_sfm = Path(os.environ['PIXSFM_OUTPUTS']) / obj / 'ref'
+    nerf_weights = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
+    nerf_transforms = Path(os.environ['PIXSFM_DATASETS']) / obj / 'transforms.json'
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--out_dir', default='outputs/nerf_sfm/gimble_04MAR2022')
-    parser.add_argument('--ref_sfm', default='pixel-perfect-sfm/outputs/gimble_04MAR2022/ref')
-    parser.add_argument('--nerf_weights', default='instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack')
-    parser.add_argument('--nerf_transforms', default='instant-ngp/data/nerf/gimble_04MAR2022/transforms.json')
+    parser.add_argument('--out_dir', default=out_dir)
+    parser.add_argument('--ref_sfm', default=ref_sfm)
+    parser.add_argument('--nerf_weights', default=nerf_weights)
+    parser.add_argument('--nerf_transforms', default=nerf_transforms)
     args = parser.parse_args()
 
-    nerf_im_dir = os.path.join(args.out_dir, 'mapping')
+    nerf_im_dir = args.out_dir / 'mapping'
     if not os.path.isdir(nerf_im_dir):
         os.makedirs(nerf_im_dir)
-    render_nerf_views(args.nerf_weights, args.nerf_transforms, nerf_im_dir)
-    triangulate_nerf_views(args.ref_sfm, args.out_dir)
-
-
-
+    render_nerf_views(str(args.nerf_weights), 
+                      str(args.nerf_transforms), 
+                      str(nerf_im_dir))
+    triangulate_nerf_views(str(args.ref_sfm), 
+                           str(args.out_dir))
 
