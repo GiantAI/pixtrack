@@ -19,7 +19,7 @@ def main(output):
 
     sfm_dir.mkdir(parents=True, exist_ok=True)
 
-    image_list = glob.glob(str(images / 'mapping/IMG*.png'))
+    image_list = glob.glob(str(images / 'mapping/*.png'))
     image_list = sorted(['/'.join(x.rsplit('/', 2)[-2:]) for x in image_list])
 
     # Get image dict
@@ -41,8 +41,10 @@ def main(output):
                    min_match_score=None, skip_geometric_verification=False)
 
 if __name__ == '__main__':
-    rout = Path('/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/gimble_04MAR2022')
-    aout = Path('/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022')
+    obj = Path(os.environ['OBJECT'])
+    rout = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / obj
+    aout = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % str(obj))
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--ref_output', type=Path, default=rout)
     parser.add_argument('--aug_output', type=Path, default=aout)

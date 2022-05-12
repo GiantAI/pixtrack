@@ -8,6 +8,7 @@ import pycolmap
 import cv2
 import tqdm
 import math
+from pathlib import Path
 
 def get_nerf_image(testbed, nerf_pose, camera):
     spp = 8
@@ -71,7 +72,6 @@ def add_pose_axes(image, camera, pose, axes_center=[0.1179, 1.1538, 1.3870, 0.])
 
 def draw_points(image, pts_3d, K=np.eye(3), t=15, color=(255, 255, 255)):
     pts_2d = project_3d_to_2d(pts_3d, K).astype(np.int16)
-    print(pts_2d)
     for pt_2d in pts_2d:
         image = cv2.circle(image, pt_2d, radius=0, color=color, thickness=t)
     return image
@@ -134,13 +134,15 @@ def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
     return base_image
 
 if __name__ == '__main__':
-    exp = 'IMG_4341'
-    poses_path = 'outputs/%s/poses.pkl' % exp
-    sfm_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022/aug_sfm'
-    nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
-    nerf2sfm_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'
-    sfm_images_dir = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
-    out_dir = 'outputs/%s' % exp
+    exp = 'IMG_4117'
+    obj = os.environ['OBJECT']
+    poses_path = Path(os.environ['PIXTRACK_OUTPUTS']) / exp / 'poses.pkl'
+    sfm_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj) / 'aug_sfm'
+    nerf_path = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
+    nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / obj / 'nerf2sfm.pkl'
+    sfm_images_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
+    out_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / exp
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--poses', default=poses_path)
     parser.add_argument('--nerf_path', default=nerf_path)
@@ -156,7 +158,7 @@ if __name__ == '__main__':
     pose_stream = pkl.load(open(poses_path, 'rb'))
     recon = pycolmap.Reconstruction(args.sfm_dir)
     nerf2sfm = load_nerf2sfm(args.nerf2sfm_path)
-    testbed = initialize_ingp(args.nerf_path)
+    testbed = initialize_ingp(str(args.nerf_path))
 
     for name_q in tqdm.tqdm(pose_stream):
         path_q = pose_stream[name_q]['query_path']

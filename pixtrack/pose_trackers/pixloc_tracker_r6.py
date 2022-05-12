@@ -54,10 +54,10 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
         self.cold_start = True
         self.pose = None
         self.reference_ids = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
-        nerf_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/snapshots/gimble_04MAR2022/weights.msgpack'
-        nerf2sfm_path = '/home/prajwal.chidananda/code/pixtrack/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'
-        self.nerf2sfm = load_nerf2sfm(nerf2sfm_path)
-        self.testbed = initialize_ingp(nerf_path)
+        nerf_path = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
+        nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / os.environ['OBJECT'] / 'nerf2sfm.pkl'
+        self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
+        self.testbed = initialize_ingp(str(nerf_path))
 
     def update_reference_ids(self):
         curr_refs = self.reference_ids
@@ -129,15 +129,16 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
             
 
 if __name__ == '__main__':
-    exp_name = 'IMG_4341'
-    data_path = '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
-    eval_path = '/home/prajwal.chidananda/code/pixtrack/outputs/%s' % exp_name
-    loc_path =  '/home/prajwal.chidananda/code/pixtrack/outputs/nerf_sfm/aug_gimble_04MAR2022'
+    exp_name = 'IMG_4117'
+    obj = os.environ['OBJECT']
+    data_path = Path(os.environ['PIXSFM_DATASETS']) / obj
+    eval_path = Path(os.environ['PIXTRACK_OUTPUTS']) / exp_name
+    loc_path = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
-    tracker = PixLocPoseTrackerR6(data_path=data_path,
-                                  eval_path=eval_path,
-                                  loc_path=loc_path)
+    tracker = PixLocPoseTrackerR6(data_path=str(data_path),
+                                  eval_path=str(eval_path),
+                                  loc_path=str(loc_path))
     query_path = os.path.join(data_path, 'query', exp_name)
     tracker.run(query_path, max_frames=np.inf)
     tracker.save_poses()

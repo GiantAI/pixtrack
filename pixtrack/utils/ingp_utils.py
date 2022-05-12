@@ -15,7 +15,7 @@ def load_nerf2sfm(path='/home/prajwal.chidananda/code/instant-ngp/data/nerf/gimb
 
 def initialize_ingp(snapshot_path, 
                     aabb=[[0.302, -0.386, 0.209], 
-                          [0.699, 0.108, 0.554]]):
+                          [0.735, 0.108, 0.554]]):
     mode = ngp.TestbedMode.Nerf
     configs_dir = os.path.join(ROOT_DIR, 'configs', 'nerf')
     scenes = scenes_nerf
