@@ -4,6 +4,9 @@ MAINTAINER Prajwal Chidananda prajwal.chidananda@giant.ai
 
 ENV DEBIAN_FRONTEND=noninteractive 
 
+RUN rm /etc/apt/sources.list.d/cuda.list
+RUN rm /etc/apt/sources.list.d/nvidia-ml.list
+
 RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
   apt-utils \
   build-essential \
@@ -173,5 +176,4 @@ RUN pip3 install packaging
 ENV FORCE_CUDA=1
 RUN pip3 install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 RUN pip3 install svox
-
 #RUN echo "alias python=python3" >> .bashrc
