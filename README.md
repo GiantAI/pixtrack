@@ -43,7 +43,10 @@ Before you can run object pose tracking, you need to do the following:
 3. Train a NeRF using the images and the SfM.
 4. Create an object SfM using the NeRF.
 
-Once data is collected (step 1), run the following (steps 2-4):
+Currently, we use environment variables to set paths to the data, sfm, nerf, etc.
+An example config file is provided (config/gimble.sh).
+
+Once data is collected (step 1), and assuming the paths are set in the config file, run the following (steps 2-4):
 ```bash
 cd ~/pixtrack
 source setup.sh
