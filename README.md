@@ -38,7 +38,7 @@ python3 -m pixloc.download --select checkpoints
 
 Before you can run object pose tracking, you need to do the following:
 
-1. Collect object data following the protocol described here.
+1. Collect object data following the protocol.
 2. Create an SfM using the collected images.
 3. Train a NeRF using the images and the SfM.
 4. Create an object SfM using the NeRF.
@@ -47,7 +47,7 @@ Once data is collected (step 1), run the following (steps 2-4):
 ```bash
 cd ~/pixtrack
 source setup.sh
-source config/gimble.sh
+source config/gimble.sh 
 python3 run_reconstruction.py 
 source train_ingp_nerf.sh 
 python3 create_nerf_dataset_and_sfm.py
