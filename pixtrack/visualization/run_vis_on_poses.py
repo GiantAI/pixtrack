@@ -134,31 +134,22 @@ def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
     return base_image
 
 if __name__ == '__main__':
-    exp = 'IMG_4117'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--out_dir', default=Path(os.environ['PIXTRACK_OUTPUTS']) / 'IMG_4117')
+    args = parser.parse_args()
+
+    PROJECT_ROOT = os.environ['PROJECT_ROOT']
     obj = os.environ['OBJECT']
-    poses_path = Path(os.environ['PIXTRACK_OUTPUTS']) / exp / 'poses.pkl'
+    poses_path = Path(args.out_dir) / 'poses.pkl'
     sfm_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj) / 'aug_sfm'
     nerf_path = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
     nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / obj / 'nerf2sfm.pkl'
     sfm_images_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
-    out_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / exp
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--poses', default=poses_path)
-    parser.add_argument('--nerf_path', default=nerf_path)
-    parser.add_argument('--nerf2sfm_path', default=nerf2sfm_path)
-    parser.add_argument('--sfm_dir', default=sfm_dir)
-    parser.add_argument('--sfm_images_dir', default=sfm_images_dir)
-    parser.add_argument('--out_dir', default=out_dir)
-    args = parser.parse_args()
-
-    PROJECT_ROOT = os.environ['PROJECT_ROOT']
-
-    poses_path = os.path.join(PROJECT_ROOT, args.poses)
     pose_stream = pkl.load(open(poses_path, 'rb'))
-    recon = pycolmap.Reconstruction(args.sfm_dir)
-    nerf2sfm = load_nerf2sfm(args.nerf2sfm_path)
-    testbed = initialize_ingp(str(args.nerf_path))
+    recon = pycolmap.Reconstruction(sfm_dir)
+    nerf2sfm = load_nerf2sfm(nerf2sfm_path)
+    testbed = initialize_ingp(str(nerf_path))
 
     for name_q in tqdm.tqdm(pose_stream):
         path_q = pose_stream[name_q]['query_path']
@@ -176,7 +167,7 @@ if __name__ == '__main__':
         result_img = blend_images(query_img, nerf_img)
 
         result_img = add_reference_images(result_img, recon, 
-                                        ref_ids, args.sfm_images_dir)
+                                        ref_ids, sfm_images_dir)
         if 'tracked_roll' in pose_stream[name_q]:
             tracked_roll = pose_stream[name_q]['tracked_roll']
             tracked_center = pose_stream[name_q]['tracked_center']
