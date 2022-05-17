@@ -60,6 +60,6 @@ To run object tracking, do this:
 
 ```bash
 cd ~/pixtrack
-python3 pixtrack/pose_trackers/pixloc_tracker_r6.py --query <path to folder with query images>
+python3 pixtrack/pose_trackers/pixloc_tracker_r6.py --query <path to directory with query images> --out_dir <path to output directory>
 python3 pixtrack/visualization/run_vis_on_poses.py --out_dir <path to output directory containing object tracking results>
 ```
