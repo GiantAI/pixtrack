@@ -47,6 +47,7 @@ Once data is collected (step 1), run the following (steps 2-4):
 ```bash
 cd ~/pixtrack
 source setup.sh
+source config/gimble.sh
 python3 run_reconstruction.py 
 source train_ingp_nerf.sh 
 python3 create_nerf_dataset_and_sfm.py
