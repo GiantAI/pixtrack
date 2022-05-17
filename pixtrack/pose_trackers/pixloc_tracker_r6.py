@@ -2,28 +2,31 @@ import os
 import numpy as np
 from pathlib import Path
 
-from pixtrack.pose_trackers.pixloc_tracker_r1 import PixLocPoseTrackerR1
-from pixtrack.utils.pose_utils import geodesic_distance_for_rotations, get_camera_in_world_from_pixpose
 from pixloc.localization import SimpleTracker
-from pixloc.pixlib.geometry import Pose
+from pixloc.utils.colmap import Camera as ColCamera
+from pixloc.pixlib.geometry import Camera as PixCamera, Pose
+from pixloc.utils.data import Paths
 
+from pixtrack.utils.pose_utils import geodesic_distance_for_rotations, get_camera_in_world_from_pixpose
 from pixtrack.pose_trackers.base_pose_tracker import PoseTracker
 from pixtrack.localization.pixloc_pose_refiners import PoseTrackerLocalizer
 from pixtrack.utils.io import ImagePathIterator
 from pixtrack.utils.hloc_utils import extract_covisibility
 from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
 from pixtrack.visualization.run_vis_on_poses import get_nerf_image
-from pixloc.pixlib.geometry import Camera as PixCamera
 
-from pixloc.utils.data import Paths
+import pycolmap
+from pycolmap import infer_camera_from_image
+
 import cv2
 import pickle as pkl
+import argparse
 
-class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
+class PixLocPoseTrackerR6(PoseTracker):
     def __init__(self, data_path, loc_path, eval_path):
         default_paths = Paths(
                             query_images='query/',
-                            reference_images='',
+                            reference_images=loc_path,
                             reference_sfm='aug_sfm',
                             query_list='*_with_intrinsics.txt',
                             global_descriptors='features.h5',
@@ -37,7 +40,7 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
                               'pad': 1,
                              },
                 'refinement': {
-                               'num_dbs': 3,
+                               'num_dbs': 1,
                                'multiscale': [4, 1],
                                'point_selection': 'all',
                                'normalize_descriptors': True,
@@ -66,6 +69,26 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
         nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / os.environ['OBJECT'] / 'nerf2sfm.pkl'
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         self.testbed = initialize_ingp(str(nerf_path))
+
+    def relocalize(self, query):
+        if self.cold_start:
+            self.camera = self.get_query_camera(query)
+            self.cold_start = False
+        ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
+        pose_init = Pose.from_Rt(ref_img.qvec2rotmat(),
+                                 ref_img.tvec)
+        self.pose = pose_init
+        return 
+
+    def get_query_camera(self, query):
+        camera = infer_camera_from_image(query)
+        camera = ColCamera(None, 
+                        camera.model_name,
+                        int(camera.width),
+                        int(camera.height),
+                        camera.params)
+        camera = PixCamera.from_colmap(camera)
+        return camera
 
     def update_reference_ids(self):
         curr_refs = self.reference_ids
@@ -103,14 +126,13 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
             self.relocalize(query)
             self.cold_start = False
         
-        reference_ids = self.update_reference_ids()
         reference_image = self.get_reference_image(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
         trackers = {}
         rets = {}
         costs = {}
-        for ref_id in reference_ids:
+        for ref_id in self.reference_ids:
             ref_img = self.localizer.model3d.dbs[ref_id]
             pose_init = Pose.from_Rt(ref_img.qvec2rotmat(), translation)
             #pose_init = Pose.from_Rt(rotation, translation)
@@ -131,16 +153,27 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
         if success:
             self.pose = ret['T_refined']
         ret['camera'] = self.camera
-        ret['reference_ids'] = reference_ids
+        ret['reference_ids'] = self.reference_ids
         ret['query_path'] = query
         img_name = os.path.basename(query)
         self.pose_history[img_name] = ret
         self.pose_tracker_history[img_name] = trackers[best_ref_id]
         return success
             
+    def get_query_frame_iterator(self, image_folder):
+        iterator = ImagePathIterator(image_folder)
+        return iterator
+
+    def save_poses(self):
+        path = os.path.join(self.eval_path, 'poses.pkl')
+        with open(path, 'wb') as f:
+            pkl.dump(self.pose_history, f)
 
 if __name__ == '__main__':
-    exp_name = 'IMG_4117'
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--query', default='IMG_4117')
+    args = parser.parse_args()
+    exp_name = args.query
     obj = os.environ['OBJECT']
     data_path = Path(os.environ['PIXSFM_DATASETS']) / obj
     eval_path = Path(os.environ['PIXTRACK_OUTPUTS']) / exp_name
