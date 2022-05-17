@@ -48,7 +48,6 @@ Once data is collected (step 1), run the following (steps 2-4):
 cd ~/pixtrack
 source setup.sh
 python3 run_reconstruction.py 
-python3 pixtrack/utils/colmap2ingp.py 
 source train_ingp_nerf.sh 
 python3 create_nerf_dataset_and_sfm.py
 ```
@@ -60,6 +59,6 @@ To run object tracking, do this:
 
 ```bash
 cd ~/pixtrack
-python3 pixtrack/pose_trackers/pixloc_tracker_r1.py
+python3 pixtrack/pose_trackers/pixloc_tracker_r6.py
 python3 pixtrack/visualization/run_vis_on_poses.py
 ```
