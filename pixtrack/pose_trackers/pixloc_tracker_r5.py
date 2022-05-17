@@ -157,19 +157,17 @@ class PixLocPoseTrackerR5(PoseTracker):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--query', default='IMG_4117')
+    parser.add_argument('--out_dir', default='IMG_4117')
     args = parser.parse_args()
-    exp_name = args.query
-
     obj = os.environ['OBJECT']
     data_path = Path(os.environ['PIXSFM_DATASETS']) / obj
-    eval_path = Path(os.environ['PIXTRACK_OUTPUTS']) / exp_name
+    eval_path = Path(args.out_dir)
     loc_path = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
     tracker = PixLocPoseTrackerR5(data_path=str(data_path),
                                   eval_path=str(eval_path),
                                   loc_path=str(loc_path))
-    query_path = os.path.join(data_path, 'query', exp_name)
     tracker.run(query_path, max_frames=np.inf)
     tracker.save_poses()
     #tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
