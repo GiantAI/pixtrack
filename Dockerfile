@@ -176,4 +176,6 @@ RUN pip3 install packaging
 ENV FORCE_CUDA=1
 RUN pip3 install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 RUN pip3 install svox
+RUN pip3 install ffmpeg-python
+
 #RUN echo "alias python=python3" >> .bashrc

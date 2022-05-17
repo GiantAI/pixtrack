@@ -17,6 +17,7 @@ from pixloc.pixlib.geometry import Camera as PixCamera
 
 from pixloc.utils.data import Paths
 import cv2
+import pickle as pkl
 
 class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
     def __init__(self, data_path, loc_path, eval_path):
@@ -49,8 +50,15 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
                                            Path(eval_path))
         self.localizer = PoseTrackerLocalizer(paths, conf)
         self.eval_path = eval_path
-        self.covis = extract_covisibility(paths.reference_sfm)
+        covis_path = Path(paths.reference_sfm) / 'covis.pkl'
+        if os.path.isfile(covis_path):
+            self.covis = pkl.load(open(covis_path, 'rb'))
+        else:
+            self.covis = extract_covisibility(paths.reference_sfm)
+            with open(str(covis_path), 'wb') as f:
+                pkl.dump(self.covis, f)
         self.pose_history = {}
+        self.pose_tracker_history = {}
         self.cold_start = True
         self.pose = None
         self.reference_ids = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
@@ -78,7 +86,7 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
             gdists[ref] = gdist
 
         reference_ids = sorted(gdists, key=lambda x: gdists[x])
-        K = 2
+        K = 1
         self.reference_ids = reference_ids[:K]
         return self.reference_ids
 
@@ -98,12 +106,14 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
         reference_ids = self.update_reference_ids()
         reference_image = self.get_reference_image(self.pose)
         translation = self.pose.numpy()[1]
+        rotation = self.pose.numpy()[0]
         trackers = {}
         rets = {}
         costs = {}
         for ref_id in reference_ids:
             ref_img = self.localizer.model3d.dbs[ref_id]
             pose_init = Pose.from_Rt(ref_img.qvec2rotmat(), translation)
+            #pose_init = Pose.from_Rt(rotation, translation)
             tracker = SimpleTracker(self.localizer.refiner)
             ret = self.localizer.run_query(query,
                                 self.camera,
@@ -125,6 +135,7 @@ class PixLocPoseTrackerR6(PixLocPoseTrackerR1):
         ret['query_path'] = query
         img_name = os.path.basename(query)
         self.pose_history[img_name] = ret
+        self.pose_tracker_history[img_name] = trackers[best_ref_id]
         return success
             
 
@@ -142,4 +153,8 @@ if __name__ == '__main__':
     query_path = os.path.join(data_path, 'query', exp_name)
     tracker.run(query_path, max_frames=np.inf)
     tracker.save_poses()
+    #tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
+    #with open(tracker_path, 'wb') as f:
+    #    pkl.dump(tracker.pose_tracker_history, f)
+
     print('Done')
