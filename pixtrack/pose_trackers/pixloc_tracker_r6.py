@@ -183,7 +183,7 @@ if __name__ == '__main__':
     tracker = PixLocPoseTrackerR6(data_path=str(data_path),
                                   eval_path=str(eval_path),
                                   loc_path=str(loc_path))
-    tracker.run(query_path, max_frames=np.inf)
+    tracker.run(args.query, max_frames=np.inf)
     tracker.save_poses()
     #tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
     #with open(tracker_path, 'wb') as f:
