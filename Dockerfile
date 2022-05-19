@@ -178,5 +178,6 @@ RUN pip3 install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
 RUN pip3 install svox
 RUN pip3 install ffmpeg-python
 RUN pip3 install snakeviz
+RUN pip3 install commentjson
 
 #RUN echo "alias python=python3" >> .bashrc

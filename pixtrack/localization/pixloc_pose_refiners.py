@@ -45,6 +45,7 @@ class PoseTrackerRefiner(BaseRefiner):
 
     def __init__(self, *args, **kwargs):
         self.global_descriptors = kwargs.pop('global_descriptors', None)
+        self.reference_scale = 1.
         super().__init__(*args, **kwargs)
 
     def refine(self, qname: str, qcamera: Camera, pose_init: Pose, 
@@ -88,6 +89,11 @@ class PoseTrackerRefiner(BaseRefiner):
         else:
             images_ref = [read_image(self.paths.reference_images / n)
                   for n in rnames] 
+            scale = self.reference_scale
+            ref_dims = [(int(rimg.shape[1] * scale), 
+                         int(rimg.shape[0] * scale)) for rimg in images_ref]
+            images_ref = [cv2.resize(images_ref[x], ref_dims[x], interpolation=cv2.INTER_AREA) \
+                          for x in range(len(images_ref))]
             print('Reading reference images from disk!!')
 
         image_orig = image_query
@@ -141,6 +147,7 @@ class PoseTrackerRefiner(BaseRefiner):
                                    pose: Pose = None) -> Dict[int, torch.Tensor]:
         image = self.model3d.dbs[image_id]
         camera = Camera.from_colmap(self.model3d.cameras[image.camera_id])
+        camera = camera.scale(self.reference_scale)
         T_w2cam = Pose.from_colmap(image)
         if pose is not None:
             T_w2cam = copy.deepcopy(pose)
