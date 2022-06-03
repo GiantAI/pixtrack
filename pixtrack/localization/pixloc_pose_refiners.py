@@ -14,6 +14,7 @@ from pixloc.pixlib.utils.experiments import load_experiment
 from pixloc.pixlib.models import get_model
 
 from pixtrack.localization.feature_extractor import PixTrackFeatureExtractor
+from pixtrack.optimizers.pixtrack_optimizer import PixTrackOptimizer
 import logging
 import numpy as np
 import copy
@@ -61,7 +62,10 @@ class PoseTrackerLocalizer(Localizer):
         self.paths = paths
         self.conf = conf
         self.device = device
+        for opt in optimizer:
+            opt.__class__ = PixTrackOptimizer
         self.optimizer = optimizer
+        self.optimizer
         self.extractor = PixTrackFeatureExtractor(
             extractor, device, conf.features.get('preprocessing', {}))
 
