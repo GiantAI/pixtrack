@@ -145,8 +145,8 @@ class PixLocPoseTrackerR5(PoseTracker):
         self.pose_tracker_history[img_name] = trackers[best_ref_id]
         return success
 
-    def get_query_frame_iterator(self, image_folder):
-        iterator = ImagePathIterator(image_folder)
+    def get_query_frame_iterator(self, image_folder, max_frames):
+        iterator = ImagePathIterator(image_folder, max_frames)
         return iterator
 
     def save_poses(self):
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     tracker = PixLocPoseTrackerR5(data_path=str(data_path),
                                   eval_path=str(eval_path),
                                   loc_path=str(loc_path))
-    tracker.run(args.query, max_frames=np.inf)
+    tracker.run(args.query, max_frames=None)
     tracker.save_poses()
     #tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
     #with open(tracker_path, 'wb') as f:

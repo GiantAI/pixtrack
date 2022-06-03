@@ -13,7 +13,7 @@ def geodesic_distance_for_rotations(R1, R2):
     return angle
 
 def get_world_in_camera_from_pixpose(pixpose):
-    pixpose = pixpose.numpy()
+    pixpose = pixpose.cpu().numpy()
     wIc = np.eye(4)
     wIc[:3, :3] = pixpose[0]
     wIc[:3, 3] = pixpose[1]

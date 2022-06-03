@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import torch
 from pathlib import Path
 
 from pixloc.utils.colmap import Camera as ColCamera
@@ -23,7 +24,7 @@ import cv2
 import pickle as pkl
 import argparse
 
-class PixLocPoseTrackerR7(PoseTracker):
+class PixLocPoseTrackerR9(PoseTracker):
     def __init__(self, data_path, loc_path, eval_path, debug=False):
         default_paths = Paths(
                             query_images='query/',
@@ -67,16 +68,32 @@ class PixLocPoseTrackerR7(PoseTracker):
         self.cold_start = True
         self.pose = None
         self.reference_ids = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
-        self.reference_scale = 1.
+        nerf_path = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
+        nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / os.environ['OBJECT'] / 'nerf2sfm.pkl'
+        self.reference_scale = 0.25
         self.localizer.refiner.reference_scale = self.reference_scale
+        self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
+        self.testbed = initialize_ingp(str(nerf_path))
+        self.dynamic_id = None
+        self.THRESH = self.get_dynamic_thresh()
+
+    def get_dynamic_thresh(self):
+        im1 = self.localizer.model3d.dbs[self.localizer.model3d.name2id['mapping/IMG_9531.png']]
+        im2 = self.localizer.model3d.dbs[self.localizer.model3d.name2id['mapping/30_IMG_9531.png']]
+        R1 = im1.qvec2rotmat()
+        R2 = im2.qvec2rotmat()
+        dist = geodesic_distance_for_rotations(R1, R2)
+        return dist
 
     def relocalize(self, query_path):
         if self.cold_start:
             self.camera = self.get_query_camera(query_path)
             self.cold_start = False
         ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
-        pose_init = Pose.from_Rt(ref_img.qvec2rotmat(),
-                                 ref_img.tvec)
+        rotation = ref_img.qvec2rotmat()
+        translation = ref_img.tvec
+        pose_init = Pose.from_Rt(rotation,
+                                 translation)
         self.pose = pose_init
         return 
 
@@ -98,6 +115,7 @@ class PixLocPoseTrackerR7(PoseTracker):
         R_ref = cimg.qvec2rotmat()
         curr_gdist = geodesic_distance_for_rotations(R_qry, R_ref)
 
+
         covis = self.covis[curr_refs[0]]
         N = 50
         covis = {k: covis[k] for k in covis if covis[k] > N}
@@ -113,12 +131,65 @@ class PixLocPoseTrackerR7(PoseTracker):
         self.reference_ids = reference_ids[:K]
         return self.reference_ids
 
+    def get_reference_image(self, pose):
+        cIw = get_camera_in_world_from_pixpose(pose)
+        nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
+        ref_camera = self.localizer.model3d.cameras[1]
+        ref_camera = PixCamera.from_colmap(ref_camera)
+        ref_camera = ref_camera.scale(self.reference_scale)
+        nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
+        return nerf_img
+
+    def create_dynamic_reference_image(self, pose):
+        nerf_img = self.get_reference_image(pose)
+        dynamic_id = hash(str(pose.numpy()[0]))
+        features = self.localizer.refiner.extract_reference_features(self.reference_ids, pose, nerf_img)
+        return dynamic_id, features
+
+    def get_dynamic_id(self, pose):
+        features_dicts = self.localizer.refiner.features_dicts
+        if self.dynamic_id is None:
+            self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
+            features_dicts[self.dynamic_id] = {}
+            features_dicts[self.dynamic_id]['pose'] = self.pose
+            features_dicts[self.dynamic_id]['features'] = features
+            return self.dynamic_id
+
+        curr_pose = self.pose
+        R_qry = curr_pose.numpy()[0]
+        dynamic_pose = features_dicts[self.dynamic_id]['pose']
+        R_drf = dynamic_pose.numpy()[0]
+        curr_gdist = geodesic_distance_for_rotations(R_qry, R_drf)
+        gdists = {self.dynamic_id: curr_gdist}
+        for did in features_dicts:
+            dpose = features_dicts[did]['pose']
+            R_drf = dpose.numpy()[0]
+            gdist = geodesic_distance_for_rotations(R_qry, R_drf)
+            gdists[did] = gdist
+
+        dids = sorted(gdists, key=lambda x: gdists[x])
+        self.THRESH = 0.1
+        if gdists[dids[0]] < self.THRESH:
+            self.dynamic_id = dids[0]
+        else:
+            #print('New reference frame! Distance: %f, Threshold: %f' % (gdists[dids[0]], self.THRESH))
+            #print(gdists)
+            print(self.localizer.refiner.features_dicts.keys())
+            self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
+            features_dicts[self.dynamic_id] = {}
+            features_dicts[self.dynamic_id]['pose'] = self.pose
+            features_dicts[self.dynamic_id]['features'] = features
+
+        return self.dynamic_id
+
+
     def refine(self, query):
         query_path, query_image = query
         if self.cold_start:
             self.relocalize(query_path)
             self.cold_start = False
         
+        self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
         rot = R.from_matrix(rotation)
@@ -128,14 +199,16 @@ class PixLocPoseTrackerR7(PoseTracker):
         costs = {}
         for ref_id in self.reference_ids:
             ref_img = self.localizer.model3d.dbs[ref_id]
-            #pose_init = Pose.from_Rt(ref_img.qvec2rotmat(), translation)
             pose_init = Pose.from_Rt(rotation, translation)
             tracker = DebugTracker(self.localizer.refiner, self.debug)
             ret = self.localizer.run_query(query_path,
                                 self.camera,
                                 pose_init,
                                 [ref_id],
-                                image_query=query_image)
+                                image_query=query_image,
+                                pose=self.pose,
+                                reference_images_raw=None, 
+                                dynamic_id=self.dynamic_id)
             rets[ref_id] = ret
             trackers[ref_id] = tracker
             avg_cost = np.mean([x[-1] for x in tracker.costs])
@@ -152,7 +225,7 @@ class PixLocPoseTrackerR7(PoseTracker):
         self.pose_history[img_name] = ret
         self.pose_tracker_history[img_name] = trackers[best_ref_id]
         return success
-
+            
     def get_query_frame_iterator(self, image_folder, max_frames):
         iterator = ImageIterator(image_folder, max_frames)
         return iterator
@@ -161,7 +234,7 @@ class PixLocPoseTrackerR7(PoseTracker):
         path = os.path.join(self.eval_path, 'poses.pkl')
         with open(path, 'wb') as f:
             pkl.dump(self.pose_history, f)
-            
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--query', default='IMG_4117')
@@ -175,7 +248,7 @@ if __name__ == '__main__':
     loc_path = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
-    tracker = PixLocPoseTrackerR7(data_path=str(data_path),
+    tracker = PixLocPoseTrackerR9(data_path=str(data_path),
                                   eval_path=str(eval_path),
                                   loc_path=str(loc_path),
                                   debug=args.debug)
@@ -186,4 +259,3 @@ if __name__ == '__main__':
         pkl.dump(tracker.pose_tracker_history, f)
 
     print('Done')
-

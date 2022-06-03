@@ -2,7 +2,6 @@ import os
 import numpy as np
 from pathlib import Path
 
-from pixloc.localization import SimpleTracker
 from pixloc.utils.colmap import Camera as ColCamera
 from pixloc.pixlib.geometry import Camera as PixCamera, Pose
 from pixloc.utils.data import Paths
@@ -10,10 +9,12 @@ from pixloc.utils.data import Paths
 from pixtrack.utils.pose_utils import geodesic_distance_for_rotations, get_camera_in_world_from_pixpose
 from pixtrack.pose_trackers.base_pose_tracker import PoseTracker
 from pixtrack.localization.pixloc_pose_refiners import PoseTrackerLocalizer
-from pixtrack.utils.io import ImagePathIterator
+from pixtrack.localization.tracker import DebugTracker
+from pixtrack.utils.io import ImageIterator
 from pixtrack.utils.hloc_utils import extract_covisibility
 from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
 from pixtrack.visualization.run_vis_on_poses import get_nerf_image
+from scipy.spatial.transform import Rotation as R
 
 import pycolmap
 from pycolmap import infer_camera_from_image
@@ -22,8 +23,8 @@ import cv2
 import pickle as pkl
 import argparse
 
-class PixLocPoseTrackerR6(PoseTracker):
-    def __init__(self, data_path, loc_path, eval_path):
+class PixLocPoseTrackerR8(PoseTracker):
+    def __init__(self, data_path, loc_path, eval_path, debug=False):
         default_paths = Paths(
                             query_images='query/',
                             reference_images=loc_path,
@@ -48,6 +49,7 @@ class PixLocPoseTrackerR6(PoseTracker):
                                'do_pose_approximation': False,
                               },
                 }
+        self.debug = debug
         paths = default_paths.add_prefixes(Path(data_path), 
                                            Path(loc_path), 
                                            Path(eval_path))
@@ -72,9 +74,9 @@ class PixLocPoseTrackerR6(PoseTracker):
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         self.testbed = initialize_ingp(str(nerf_path))
 
-    def relocalize(self, query):
+    def relocalize(self, query_path):
         if self.cold_start:
-            self.camera = self.get_query_camera(query)
+            self.camera = self.get_query_camera(query_path)
             self.cold_start = False
         ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
         pose_init = Pose.from_Rt(ref_img.qvec2rotmat(),
@@ -125,25 +127,28 @@ class PixLocPoseTrackerR6(PoseTracker):
         return nerf_img
 
     def refine(self, query):
+        query_path, query_image = query
         if self.cold_start:
-            self.relocalize(query)
+            self.relocalize(query_path)
             self.cold_start = False
         
         reference_image = self.get_reference_image(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
+        rot = R.from_matrix(rotation)
+        rotation = rot.as_matrix()
         trackers = {}
         rets = {}
         costs = {}
         for ref_id in self.reference_ids:
             ref_img = self.localizer.model3d.dbs[ref_id]
-            #pose_init = Pose.from_Rt(ref_img.qvec2rotmat(), translation)
             pose_init = Pose.from_Rt(rotation, translation)
-            tracker = SimpleTracker(self.localizer.refiner)
-            ret = self.localizer.run_query(query,
+            tracker = DebugTracker(self.localizer.refiner, self.debug)
+            ret = self.localizer.run_query(query_path,
                                 self.camera,
                                 pose_init,
                                 [ref_id],
+                                image_query=query_image,
                                 pose=self.pose,
                                 reference_images_raw=[reference_image])
             rets[ref_id] = ret
@@ -157,14 +162,14 @@ class PixLocPoseTrackerR6(PoseTracker):
             self.pose = ret['T_refined']
         ret['camera'] = self.camera
         ret['reference_ids'] = self.reference_ids
-        ret['query_path'] = query
-        img_name = os.path.basename(query)
+        ret['query_path'] = query_path
+        img_name = os.path.basename(query_path)
         self.pose_history[img_name] = ret
         self.pose_tracker_history[img_name] = trackers[best_ref_id]
         return success
             
-    def get_query_frame_iterator(self, image_folder):
-        iterator = ImagePathIterator(image_folder)
+    def get_query_frame_iterator(self, image_folder, max_frames):
+        iterator = ImageIterator(image_folder, max_frames)
         return iterator
 
     def save_poses(self):
@@ -176,6 +181,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--query', default='IMG_4117')
     parser.add_argument('--out_dir', default='IMG_4117')
+    parser.add_argument('--frames', type=int, default=None)
+    parser.add_argument('--debug', action='store_true', default=False)
     args = parser.parse_args()
     obj = os.environ['OBJECT']
     data_path = Path(os.environ['PIXSFM_DATASETS']) / obj
@@ -183,14 +190,14 @@ if __name__ == '__main__':
     loc_path = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
-    tracker = PixLocPoseTrackerR6(data_path=str(data_path),
+    tracker = PixLocPoseTrackerR8(data_path=str(data_path),
                                   eval_path=str(eval_path),
-                                  loc_path=str(loc_path))
-    tracker.run(args.query, max_frames=np.inf)
-    #tracker.run(args.query, max_frames=100)
+                                  loc_path=str(loc_path),
+                                  debug=args.debug)
+    tracker.run(args.query, max_frames=args.frames)
     tracker.save_poses()
-    #tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
-    #with open(tracker_path, 'wb') as f:
-    #    pkl.dump(tracker.pose_tracker_history, f)
+    tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
+    with open(tracker_path, 'wb') as f:
+        pkl.dump(tracker.pose_tracker_history, f)
 
     print('Done')
