@@ -76,6 +76,9 @@ class PixLocPoseTrackerR9(PoseTracker):
         self.testbed = initialize_ingp(str(nerf_path))
         self.dynamic_id = None
         self.THRESH = self.get_dynamic_thresh()
+        self.hits = 0
+        self.misses = 0
+        self.cache_hit = False
 
     def get_dynamic_thresh(self):
         im1 = self.localizer.model3d.dbs[self.localizer.model3d.name2id['mapping/IMG_9531.png']]
@@ -108,6 +111,8 @@ class PixLocPoseTrackerR9(PoseTracker):
         return camera
 
     def update_reference_ids(self):
+        if self.cache_hit == True:
+            return self.reference_ids
         curr_refs = self.reference_ids
         curr_pose = self.pose
         R_qry = curr_pose.numpy()[0]
@@ -155,30 +160,39 @@ class PixLocPoseTrackerR9(PoseTracker):
             features_dicts[self.dynamic_id]['features'] = features
             return self.dynamic_id
 
+        self.THRESH = 0.1
         curr_pose = self.pose
         R_qry = curr_pose.numpy()[0]
         dynamic_pose = features_dicts[self.dynamic_id]['pose']
         R_drf = dynamic_pose.numpy()[0]
         curr_gdist = geodesic_distance_for_rotations(R_qry, R_drf)
         gdists = {self.dynamic_id: curr_gdist}
-        for did in features_dicts:
-            dpose = features_dicts[did]['pose']
-            R_drf = dpose.numpy()[0]
-            gdist = geodesic_distance_for_rotations(R_qry, R_drf)
-            gdists[did] = gdist
+        if curr_gdist > self.THRESH:
+            for did in features_dicts:
+                dpose = features_dicts[did]['pose']
+                R_drf = dpose.numpy()[0]
+                gdist = geodesic_distance_for_rotations(R_qry, R_drf)
+                gdists[did] = gdist
 
         dids = sorted(gdists, key=lambda x: gdists[x])
-        self.THRESH = 0.1
-        if gdists[dids[0]] < self.THRESH:
+        gdist_min = gdists[dids[0]]
+        if gdist_min < self.THRESH:
             self.dynamic_id = dids[0]
+            self.reference_ids = features_dicts[self.dynamic_id]['ref_ids']
+            self.hits += 1
+            self.cache_hit = True
         else:
             #print('New reference frame! Distance: %f, Threshold: %f' % (gdists[dids[0]], self.THRESH))
             #print(gdists)
-            print(self.localizer.refiner.features_dicts.keys())
+            #print(self.localizer.refiner.features_dicts.keys())
+            self.cache_hit = False
             self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
             features_dicts[self.dynamic_id] = {}
             features_dicts[self.dynamic_id]['pose'] = self.pose
             features_dicts[self.dynamic_id]['features'] = features
+            features_dicts[self.dynamic_id]['ref_ids'] = self.update_reference_ids()
+            self.misses += 1
+            self.cache_hit = True
 
         return self.dynamic_id
 
@@ -254,6 +268,7 @@ if __name__ == '__main__':
                                   debug=args.debug)
     tracker.run(args.query, max_frames=args.frames)
     tracker.save_poses()
+    print('Cache hits: %d, misses: %d' % (tracker.hits, tracker.misses))
     tracker_path = os.path.join(tracker.eval_path, 'trackers.pkl')
     with open(tracker_path, 'wb') as f:
         pkl.dump(tracker.pose_tracker_history, f)
