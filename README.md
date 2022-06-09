@@ -15,17 +15,7 @@ Follow these steps:
 ```bash
 ssh 10.0.2.113
 docker build -t pixtrack .
-docker run -it --rm -p 8090:8090 \
-				-e USER="$USER" \
-				-e HOME="/home/$USER" \
-				-w /home/$USER \
-				-v /home/$USER/:/home/$USER/ \
-				-v ~/.ssh:/root/.ssh \
-				--network host \
-				--gpus '"device=0"' \
-				--shm-size=256gb \
-				pixtrack \
-				bash
+source run_docker_tolkien.sh
 git clone git@bitbucket.org:ai_giant_global/pixtrack.git
 cd pixtrack
 source setup.sh
