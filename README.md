@@ -14,11 +14,10 @@ Follow these steps:
 
 ```bash
 ssh 10.0.2.113
-git clone git@bitbucket.org:ai_giant_global/pixtrack.git
-cd pixtrack
 docker build -t pixtrack .
 docker run -it --rm -p 8090:8090 \
-				-e HOME='/home/$USER' \
+				-e USER="$USER" \
+				-e HOME="/home/$USER" \
 				-w /home/$USER \
 				-v /home/$USER/:/home/$USER/ \
 				-v ~/.ssh:/root/.ssh \
@@ -27,6 +26,7 @@ docker run -it --rm -p 8090:8090 \
 				--shm-size=256gb \
 				pixtrack \
 				bash
+git clone git@bitbucket.org:ai_giant_global/pixtrack.git
 cd pixtrack
 source setup.sh
 python3 -m pixloc.download --select checkpoints
