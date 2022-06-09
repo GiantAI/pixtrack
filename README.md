@@ -18,7 +18,8 @@ git clone git@bitbucket.org:ai_giant_global/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
 docker run -it --rm -p 8090:8090 \
-				-e HOME='/home/$USER' \
+				-e USER="$USER" \
+				-e HOME="/home/$USER" \
 				-w /home/$USER \
 				-v /home/$USER/:/home/$USER/ \
 				-v ~/.ssh:/root/.ssh \
