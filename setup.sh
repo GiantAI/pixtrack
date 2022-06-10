@@ -10,6 +10,7 @@ pip3 install -e .
 cd $ROOT/pixloc
 pip3 install -e .
 
+# Download pixloc snapshots
 PIXLOC_SNAPSHOTS=$ROOT/pixloc/outputs/training
 if [ -d "$PIXLOC_SNAPSHOTS" ]
 then
