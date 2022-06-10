@@ -9,7 +9,14 @@ pip3 install -e .
 # Install pixloc
 cd $ROOT/pixloc
 pip3 install -e .
-#python3 -m pixloc.download --select checkpoints
+
+PIXLOC_SNAPSHOTS=$ROOT/pixloc/outputs/training
+if [ -d "$PIXLOC_SNAPSHOTS" ]
+then
+	echo "Checkpoints already exist"
+else
+	python3 -m pixloc.download --select checkpoints
+fi
 
 # Install pixsfm
 cd $ROOT/pixel-perfect-sfm
