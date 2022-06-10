@@ -56,3 +56,9 @@ cd ~/pixtrack
 python3 pixtrack/pose_trackers/pixloc_tracker_r9.py --query <path to directory with query images> --out_dir <path to output directory>
 python3 pixtrack/visualization/run_vis_on_poses.py --out_dir <path to output directory containing object tracking results>
 ```
+
+To create a video from a folder of images, do this:
+```
+cd <path to output dirctory containing images>
+ffmpeg -start_number 1 -pattern_type glob -i '*.jpg' -c:v libx264 -vf "fps=30,format=yuv420p"  overlay.mp4
+```
