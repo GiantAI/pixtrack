@@ -20,7 +20,6 @@ docker build -t pixtrack .
 source run_docker_tolkien.sh
 cd pixtrack
 source setup.sh
-python3 -m pixloc.download --select checkpoints
 ```
 
 ---
