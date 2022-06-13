@@ -41,7 +41,7 @@ Once data is collected (step 1), and assuming the paths are set in the config fi
 cd ~/pixtrack
 source setup.sh
 source config/gimble.sh 
-python3 run_reconstruction.py 
+python3 run_reconstruction.py --images_path $PIXSFM_DATASETS/$OBJECT/ --outputs_path $PIXSFM_OUTPUTS/$OBJECT 
 source train_ingp_nerf.sh 
 python3 create_nerf_dataset_and_sfm.py
 ```
