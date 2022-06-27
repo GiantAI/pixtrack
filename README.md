@@ -38,8 +38,6 @@ An example config file is provided (config/gimble.sh).
 
 Once data is collected (step 1), and assuming the paths are set in the config file, run the following (steps 2-4):
 ```bash
-cd ~/pixtrack
-source setup.sh
 source config/gimble.sh 
 python3 run_reconstruction.py --images_path $PIXSFM_DATASETS/$OBJECT/ --outputs_path $PIXSFM_OUTPUTS/$OBJECT 
 source train_ingp_nerf.sh 
