@@ -67,15 +67,16 @@ class PixLocPoseTrackerR9(PoseTracker):
         self.pose_tracker_history = {}
         self.cold_start = True
         self.pose = None
-        self.reference_ids = [self.localizer.model3d.name2id['mapping/IMG_9531.png']]
+        upright_ref_img = os.environ['UPRIGHT_REF_IMG']
+        self.reference_ids = [self.localizer.model3d.name2id[upright_ref_img]]
         nerf_path = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
         nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / os.environ['OBJECT'] / 'nerf2sfm.pkl'
-        self.reference_scale = 0.25
+        self.reference_scale = 0.5
         self.localizer.refiner.reference_scale = self.reference_scale
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         self.testbed = initialize_ingp(str(nerf_path))
         self.dynamic_id = None
-        self.THRESH = self.get_dynamic_thresh()
+        #self.THRESH = self.get_dynamic_thresh()
         self.hits = 0
         self.misses = 0
         self.cache_hit = False
@@ -160,7 +161,7 @@ class PixLocPoseTrackerR9(PoseTracker):
             features_dicts[self.dynamic_id]['features'] = features
             return self.dynamic_id
 
-        self.THRESH = 0.1
+        self.THRESH = 0 #0.1
         curr_pose = self.pose
         R_qry = curr_pose.numpy()[0]
         dynamic_pose = features_dicts[self.dynamic_id]['pose']

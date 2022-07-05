@@ -1,4 +1,4 @@
-docker run -it --rm -p 8090:8090 \
+docker run -it --rm -p 8095:8095 \
                 -e USER="$USER" \
                 -e HOME="/home/$USER" \
                 -w /home/$USER \
@@ -6,7 +6,7 @@ docker run -it --rm -p 8090:8090 \
                 -v ~/.ssh:/root/.ssh \
                 -v /data:/data \
                 --network host \
-                --gpus '"device=0"' \
+                --gpus '"device=3"' \
                 --shm-size=256gb \
                 pixtrack \
                 bash

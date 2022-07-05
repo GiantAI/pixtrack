@@ -6,7 +6,7 @@ from common import *
 from scenes import scenes_nerf
 import pyngp as ngp
 import pickle as pkl
-
+import ast
 
 def load_nerf2sfm(path='/home/prajwal.chidananda/code/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'):
     with open(path, 'rb') as f:
@@ -14,8 +14,7 @@ def load_nerf2sfm(path='/home/prajwal.chidananda/code/instant-ngp/data/nerf/gimb
     return nerf2sfm
 
 def initialize_ingp(snapshot_path, 
-                    aabb=[[0.302, -0.386, 0.209], 
-                          [0.735, 0.108, 0.554]]):
+        aabb=ast.literal_eval(os.environ['OBJ_AABB'])):
     mode = ngp.TestbedMode.Nerf
     configs_dir = os.path.join(ROOT_DIR, 'configs', 'nerf')
     scenes = scenes_nerf
