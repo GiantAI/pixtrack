@@ -33,7 +33,16 @@ def render_nerf_views(nerf_weights, transforms_file, out_dir):
     spp = 8
     with open(transforms_file) as f:
         transforms = json.load(f)
-    testbed = initialize_ingp(nerf_weights)
+    # The default is the gimbal.
+    aabb=transforms.get(
+        "crop", [[0.302, -0.386, 0.209],
+                          [0.735, 0.108, 0.554]] 
+    )
+    print(aabb)
+    testbed = initialize_ingp(
+        snapshot_path=nerf_weights, 
+        aabb=aabb,
+    )
     testbed.fov = transforms['camera_angle_x'] * 180 / np.pi
     height = int(transforms['h'])
     width = int(transforms['w'])
