@@ -6,7 +6,7 @@ docker run -it --rm -p 8095:8095 \
                 -v ~/.ssh:/root/.ssh \
                 -v /data:/data \
                 --network host \
-                --gpus '"device=1"' \
+                --gpus '"device=0"' \
                 --shm-size=256gb \
                 pixtrack \
                 bash

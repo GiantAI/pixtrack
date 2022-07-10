@@ -282,7 +282,10 @@ if __name__ == "__main__":
     nerf2sfm_dict = {'up': up, 'centroid': centroid, 
                      'avglen': avglen, 'totp': totp,
                      'R': R}
+    if not os.path.exists(OUT_PATH):
+        os.mkdir(OUT_PATH)
     n2s_path = os.path.join(OUT_PATH, 'nerf2sfm.pkl')
+
     with open(n2s_path, 'wb') as f:
         pkl.dump(nerf2sfm_dict, f)
     t_path = os.path.join(OUT_PATH, 'transforms.json')

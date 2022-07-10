@@ -8,7 +8,7 @@ class ImagePathIterator:
     def __iter__(self):
         return self
 
-    def __init__(self, path, max_frames=None):
+    def __init__(self, path, max_frames=10):
         assert os.path.isdir(path)
         jpg_paths = glob.glob(os.path.join(path, '*.jpg'))
         png_paths = glob.glob(os.path.join(path, '*.png'))
@@ -32,7 +32,7 @@ class ImageIterator:
     def __iter__(self):
         return self
 
-    def __init__(self, path, max_frames=None):
+    def __init__(self, path, max_frames=100):
         assert os.path.isdir(path)
         jpg_paths = glob.glob(os.path.join(path, '*.jpg'))
         png_paths = glob.glob(os.path.join(path, '*.png'))
@@ -42,6 +42,7 @@ class ImageIterator:
         self.image_paths = image_paths
         print('Reading query images')
         self.images = []
+        print(len(image_paths))
         for path in tqdm.tqdm(image_paths):
             self.images.append(read_image(path).astype(np.float32))
         self.idx = 0

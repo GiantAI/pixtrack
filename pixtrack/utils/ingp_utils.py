@@ -58,7 +58,7 @@ def nerf_to_sfm_pose(nerf2sfm, nerf_pose):
             [0.,  0., -1., 0.],
             [0.,  0.,  0., 1.],
         ])
-    p2 = nerf_pose
+    p2 = nerf_pose.copy()
     p2[0:3, 3] += nerf2sfm['totp']
     p2 = np.linalg.inv(nerf2sfm['R']) @ p2
     p2[0:3, 3] /= 3. / nerf2sfm['avglen']

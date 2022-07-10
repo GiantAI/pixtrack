@@ -33,7 +33,7 @@ class PixLocPoseTrackerR9(PoseTracker):
                             query_list='*_with_intrinsics.txt',
                             global_descriptors='features.h5',
                             retrieval_pairs='pairs_query.txt',
-                            results='pixloc_gimble.txt',)
+                            results='pixloc_object.txt',)
         conf = {
                 'experiment': 'pixloc_megadepth',
                 'features': {},

@@ -24,6 +24,7 @@ import h5py
 
 logger = logging.getLogger(__name__)
 
+
 class PoseTrackerLocalizer(Localizer):
     def __init__(self, paths: Paths, conf: Union[DictConfig, Dict],
             device: Optional[torch.device] = None):

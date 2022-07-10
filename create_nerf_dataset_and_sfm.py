@@ -1,4 +1,5 @@
 import os
+import ast
 import sys
 import json
 import numpy as np
@@ -29,16 +30,11 @@ def create_features_matches(images, outputs):
     match_features.main(matcher_conf, sfm_pairs, features=features, matches=matches)
     return features, matches, sfm_pairs
 
-def render_nerf_views(nerf_weights, transforms_file, out_dir):
+def render_nerf_views(nerf_weights, transforms_file, out_dir, aabb):
     spp = 8
     with open(transforms_file) as f:
         transforms = json.load(f)
     # The default is the gimbal.
-    aabb=transforms.get(
-        "crop", [[0.302, -0.386, 0.209],
-                          [0.735, 0.108, 0.554]] 
-    )
-    print(aabb)
     testbed = initialize_ingp(
         snapshot_path=nerf_weights, 
         aabb=aabb,
@@ -84,6 +80,8 @@ if __name__ == '__main__':
     ref_sfm = Path(os.environ['PIXSFM_OUTPUTS']) / obj / 'ref'
     nerf_weights = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
     nerf_transforms = Path(os.environ['PIXSFM_DATASETS']) / obj / 'transforms.json'
+    obj_aabb = os.environ['OBJ_AABB']
+    obj_aabb = np.array(ast.literal_eval(obj_aabb)).copy()
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--out_dir', default=out_dir)
@@ -97,7 +95,8 @@ if __name__ == '__main__':
         os.makedirs(nerf_im_dir)
     render_nerf_views(str(args.nerf_weights), 
                       str(args.nerf_transforms), 
-                      str(nerf_im_dir))
+                      str(nerf_im_dir),
+                      obj_aabb,)
     triangulate_nerf_views(str(args.ref_sfm), 
                            str(args.out_dir))
 

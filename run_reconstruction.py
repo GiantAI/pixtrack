@@ -20,7 +20,7 @@ def main(images_path, outputs_path):
     raw_dir = outputs / "raw"
     ref_dir = outputs / "ref"
     
-    feature_conf = extract_features.confs['superpoint_aachen']
+    feature_conf = extract_features.confs['superpoint_max']
     matcher_conf = match_features.confs['superglue']
     matcher_conf['model']['weights'] = 'indoor'
     
