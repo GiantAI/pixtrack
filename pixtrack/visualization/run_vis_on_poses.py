@@ -284,6 +284,8 @@ if __name__ == '__main__':
         if(not os.path.exists(pose_axis_dir)):
             os.mkdir(pose_axis_dir)
         result_path = os.path.join(pose_axis_dir, result_name)
+        if not args.no_axes:
+            result_img = add_pose_axes(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path, result_img)
         # To get the contour!
         gray = cv2.cvtColor(nerf_img, cv2.COLOR_RGB2GRAY) # convert to grayscale
