@@ -197,9 +197,13 @@ class PoseTrackerRefiner(BaseRefiner):
             features_query, scales_query = self.dense_feature_extraction(
                         image_query, qname, image_scale)
 
-            ret = self.refine_pose_using_features(features_query, scales_query,
-                                                  qcamera, T_init,
-                                                  p3did_to_feat, p3dids)
+            try:
+                ret = self.refine_pose_using_features(features_query, scales_query,
+                                                      qcamera, T_init,
+                                                      p3did_to_feat, p3dids)
+            except:
+                ret = {}
+                ret['success'] =  False
             if not ret['success']:
                 logger.info(f"Optimization failed for query {qname}")
                 break

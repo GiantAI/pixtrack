@@ -47,9 +47,8 @@ def draw_axes(image, pts_3d, K=np.eye(3), t=10):
     image = cv2.line(image, pts_2d[4], pts_2d[5], (0, 0, 255), int(t))
     return image
 
-
 def add_pose_axes(
-    image, camera, pose, axes_center=[0.1179, 1.1538, 1.3870, 0.],
+    image, camera, pose, axes_center=[0.1179, -1.1538, 1.3870, 0.],
 ):
     width, height = camera.size
     focal = float(camera.f[0])
@@ -107,6 +106,8 @@ def add_object_center(image, camera, pose, object_center=[0.33024578, 1.79926808
     object_center0 = np.hstack((object_center0, 
                       np.ones((object_center0.shape[0],1))))
     pts_3d = object_center0 @ np.linalg.inv(pose).T[:, :3]
+    #pts_3d2 = (np.linalg.inv(pose) @ np.append(object_center, 1))[:3]
+    #import pdb; pdb.set_trace()
     result_img = draw_points(image, pts_3d, K)
     return result_img
 
@@ -262,8 +263,18 @@ if __name__ == '__main__':
         else:
             nerf_img = (np.ones(query_img.shape) * 255).astype(np.uint8)
         p = cIw_sfm.copy()
+
+        result_name = 'result_%s' % os.path.basename(path_q)
+        nerf_img_dir = os.path.join(args.out_dir, "nerf_image")
+        if(not os.path.exists(nerf_img_dir)):
+            os.mkdir(nerf_img_dir)
+        result_path = os.path.join(nerf_img_dir, result_name)
+        nerf_img_saved = cv2.cvtColor(nerf_img, cv2.COLOR_BGR2RGB)
+        cv2.imwrite(result_path, nerf_img_saved)
+
         result_img = blend_images(query_img, nerf_img)
        
+
         #result_img = add_object_bounding_box(image=query_img, camera=camera, pose=p, obj_aabb=obj_aabb.copy(), nerf2sfm=nerf2sfm)
         if args.reference_image:
             result_img = add_reference_images(result_img, recon, 
@@ -274,9 +285,9 @@ if __name__ == '__main__':
             result_img = add_normalized_query_image(result_img, path_q, tracked_roll, tracked_center)
 
         base_result_image = result_img.copy()
-        if not args.no_axes:
+        if args.no_axes:
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
-        if not args.obj_center:
+        if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
 
         result_name = 'result_%s' % os.path.basename(path_q)
@@ -306,7 +317,7 @@ if __name__ == '__main__':
             result_img = add_reference_images(result_img, recon, ref_ids, sfm_images_dir)
         if not args.no_axes:
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
-        if not args.obj_center:
+        if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path, result_img)
          
@@ -321,6 +332,6 @@ if __name__ == '__main__':
             result_img = add_reference_images(result_img, recon, ref_ids, sfm_images_dir)
         if not args.no_axes:
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
-        if not args.obj_center:
+        if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path_segmask, result_img)
