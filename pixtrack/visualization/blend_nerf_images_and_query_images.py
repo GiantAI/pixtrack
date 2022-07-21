@@ -16,14 +16,6 @@ def read_images_from_folder(folder_path:str):
     return images
 
 
-def merge_images(images1, images2):
-    merged_images = []
-    for image_number in range(len(images1)):
-        # Assumuing black background for the nerf images.
-        merged_images.append(np.minimum(images1[image_number], images2[image_number]).astype(np.uint8))
-    return merged_images
-
-
 def save_images(merged_images, save_path):
     for number, image in enumerate(merged_images):
         Image.fromarray(image.astype(np.uint8)).save(os.path.join(save_path, f"{number}.jpg"))
@@ -47,26 +39,20 @@ def blend_all_images(images1:list, images2:list, alpha:float=0.5):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='merge the nerf images')
-    parser.add_argument('one', type=str, 
-                        help='first nerf path')
-    parser.add_argument('two', type=str, 
-                        help='second nerf path')
-    parser.add_argument('three', type=str, default=None,
-                        help='third nerf path')
+    parser.add_argument('nerf_images', type=str, 
+                        help='images with the nerf renders and white background')
+    parser.add_argument('query', type=str, 
+                        help='query_images')
     parser.add_argument('save_path', type=str, default=None,
                         help='third nerf path')
 
     args = parser.parse_args()
-    images1 = read_images_from_folder(args.one)
-    images2 = read_images_from_folder(args.two)
+    images1 = read_images_from_folder(args.nerf_images)
+    images2 = read_images_from_folder(args.query)
 
     assert len(images1) == len(images2), f"{len(images1)}, {len(images2)}"
-    merged_images = merge_images(images1, images2)
-    if args.three is not None:
-        images3 = read_images_from_folder(args.three)
-        assert len(images2) == len(images3)
-        merged_images = merge_images(merged_images, images3)
+    blend_images = blend_all_images(images1, images2)
     if not os.path.exists(args.save_path):
         os.mkdir(args.save_path)
-    save_images(merged_images, args.save_path)
+    save_images(blend_images, args.save_path)
 

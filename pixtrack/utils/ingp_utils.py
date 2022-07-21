@@ -14,7 +14,9 @@ def load_nerf2sfm(path='/home/prajwal.chidananda/code/instant-ngp/data/nerf/gimb
     return nerf2sfm
 
 def initialize_ingp(snapshot_path, 
-        aabb=ast.literal_eval(os.environ['OBJ_AABB'])):
+        aabb=ast.literal_eval(os.environ['OBJ_AABB']), background=None):
+    if background is None:
+        background = [0., 0., 0., 0.]
     mode = ngp.TestbedMode.Nerf
     configs_dir = os.path.join(ROOT_DIR, 'configs', 'nerf')
     scenes = scenes_nerf
@@ -25,8 +27,9 @@ def initialize_ingp(snapshot_path,
     testbed.nerf.sharpen = 0.
     testbed.load_snapshot(snapshot_path)
     testbed.nerf.render_with_camera_distortion = True
-    testbed.background_color = [1., 1., 1., 1.]
+    testbed.background_color = background
     testbed.snap_to_pixel_centers = True
+    testbed.nerf.rendering_min_transmittance = 1e-7
     #testbed.nerf.rendering_min_alpha = 1e-4 * 10
     testbed.fov_axis = 0
     testbed.shall_train = False

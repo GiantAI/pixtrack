@@ -7,6 +7,8 @@ from PIL import Image
 import tqdm
 import argparse
 import pickle as pkl
+import pycolmap
+
 
 from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image
 
@@ -71,6 +73,12 @@ if __name__ == "__main__":
     parser.add_argument('--input_folder', type=str,  required=True, help="Folder with the input images on which the pose axes are added.")
     parser.add_argument('--pixtrack_output', type=str, required=True, help="Pixtrack output for an object")
     args = parser.parse_args()
+    obj = os.environ['OBJECT']
+
+    sfm_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj) / 'aug_sfm'
+    recon = pycolmap.Reconstruction(sfm_dir)
+    object_center = list(np.mean([recon.points3D[x].xyz for x in recon.points3D], axis=0))
+    object_center += [0]
 
     poses_path = Path(args.pixtrack_output) / 'poses.pkl'
     pose_stream = pkl.load(open(poses_path, 'rb'))
@@ -78,7 +86,7 @@ if __name__ == "__main__":
     if not os.path.exists(args.output_folder):
         os.mkdir(args.output_folder)
 
-    for name_q in tqdm.tqdm(pose_stream):
+    for number, name_q in enumerate(tqdm.tqdm(pose_stream)):
         path_q = pose_stream[name_q]['query_path']
         ref_ids = pose_stream[name_q]['reference_ids']
         camera = pose_stream[name_q]['camera']
@@ -87,6 +95,8 @@ if __name__ == "__main__":
             continue
         wIc_pix = pose_stream[name_q]['T_refined']
         cIw_sfm = get_camera_in_world_from_pixpose(wIc_pix)
-        result_img = add_pose_axes(input_images[name_q], camera, cIw_sfm)
+        if not name_q in list(input_images.keys())[number] and list(input_images.keys())[number] not in name_q:
+            assert False, "something went wront in the image naming or ordering"
+        result_img = add_pose_axes(input_images[list(input_images.keys())[number]], camera, cIw_sfm, object_center)
         Image.fromarray(result_img).save(os.path.join(args.output_folder, name_q))
 

@@ -48,7 +48,7 @@ def draw_axes(image, pts_3d, K=np.eye(3), t=10):
     return image
 
 def add_pose_axes(
-    image, camera, pose, axes_center=[0.1179, -1.1538, 1.3870, 0.],
+    image, camera, pose, axes_center=[0.1179, 1.1538, 1.3870, 0.],
 ):
     width, height = camera.size
     focal = float(camera.f[0])
@@ -247,7 +247,7 @@ if __name__ == '__main__':
     pose_stream = pkl.load(open(poses_path, 'rb'))
     recon = pycolmap.Reconstruction(sfm_dir)
     nerf2sfm = load_nerf2sfm(nerf2sfm_path)
-    testbed = initialize_ingp(str(nerf_path))
+    testbed = initialize_ingp(str(nerf_path), background=[1., 1., 1., 1])
 
     for name_q in tqdm.tqdm(pose_stream):
         path_q = pose_stream[name_q]['query_path']
@@ -285,7 +285,7 @@ if __name__ == '__main__':
             result_img = add_normalized_query_image(result_img, path_q, tracked_roll, tracked_center)
 
         base_result_image = result_img.copy()
-        if args.no_axes:
+        if not args.no_axes:
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
         if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
@@ -304,7 +304,13 @@ if __name__ == '__main__':
         ret, thresh = cv2.threshold(blur, 200, 255, cv2.THRESH_BINARY)
         contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
         img = cv2.fillPoly(nerf_img, pts = contours, color =(0, 255, 75))
+        # Mask is a segmentation mask in green
         mask = np.array((img != np.array([0, 255, 75]))*np.array([0, 255, 75]), dtype=np.uint8)
+
+        # Mask clear is a segmentation mask in white, which can be used to mask out the object for multi-object tracking.
+        mask_clear = np.array((img != np.array([0, 255, 75]))*np.array([255, 255, 255]), dtype=np.uint8)
+        kernel = np.ones((5,5),np.uint8)
+        mask_clear = cv2.dilate(mask_clear, kernel,iterations = 1)
         
         # Plotting the contours images
         result_img = cv2.drawContours(base_result_image.copy(), contours, -1, (0,255,75), 2)
@@ -334,4 +340,14 @@ if __name__ == '__main__':
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
         if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
+        cv2.imwrite(result_path_segmask, result_img)
+
+        # Segmentation mask images
+         
+        result_name = 'result_%s' % os.path.basename(path_q)
+        result_path_segmask = os.path.join(os.path.join(args.out_dir, "cleared"), result_name)
+        segmask_dir = os.path.join(args.out_dir, "cleared")
+        if(not os.path.exists(segmask_dir)):
+            os.mkdir(segmask_dir)
+        result_img = np.maximum(query_img , mask_clear)
         cv2.imwrite(result_path_segmask, result_img)
