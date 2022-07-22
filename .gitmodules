@@ -1,0 +1,12 @@
+[submodule "Hierarchical-Localization"]
+	path = Hierarchical-Localization
+	url = https://github.com/cvg/Hierarchical-Localization.git
+[submodule "pixloc"]
+	path = pixloc
+	url = https://github.com/cvg/pixloc.git
+[submodule "instant-ngp"]
+	path = instant-ngp
+	url = https://github.com/NVlabs/instant-ngp.git
+[submodule "pixel-perfect-sfm"]
+	path = pixel-perfect-sfm
+	url = https://github.com/cvg/pixel-perfect-sfm.git
