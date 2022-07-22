@@ -1,10 +1,10 @@
 # PixTrack
-A 6DOF object pose tracker based on ingp, hloc, pixloc and pixsfm lines of work.
+
+A Computer Vision method for Object Tracking which uses NeRF templates and feature-metric alignment to robustly track the 6DoF pose of a known object.
 
 With `pixtrack`, you can:
-
-1. Create an object NeRF and a corresponding SFM model.
-2. Run 6DOF object tracking on a video file and visualize the same.
+1. Create an object-level NeRF and a corresponding SFM model capturing its 3D keypoint structure
+2. Run 6-DoF object tracking on a video file and visualize the pose trajectory of the object with respect to the camera
 
 ---
 
