@@ -13,7 +13,6 @@ With `pixtrack`, you can:
 Follow these steps:
 
 ```bash
-ssh 10.0.2.113
 git clone git@bitbucket.org:ai_giant_global/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
