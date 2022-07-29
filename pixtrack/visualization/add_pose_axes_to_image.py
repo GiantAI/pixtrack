@@ -1,4 +1,9 @@
 import cv2 
+<<<<<<< HEAD
+=======
+import ast
+
+>>>>>>> origin/main
 import numpy as np
 import os
 import re
@@ -77,9 +82,13 @@ if __name__ == "__main__":
 
     sfm_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj) / 'aug_sfm'
     recon = pycolmap.Reconstruction(sfm_dir)
+<<<<<<< HEAD
     object_center = list(np.mean([recon.points3D[x].xyz for x in recon.points3D], axis=0))
     object_center += [0]
 
+=======
+    object_center = ast.literal_eval(os.environ['OBJ_CENTER']) + [0]
+>>>>>>> origin/main
     poses_path = Path(args.pixtrack_output) / 'poses.pkl'
     pose_stream = pkl.load(open(poses_path, 'rb'))
     input_images = read_images_from_folder(args.input_folder)
@@ -96,7 +105,11 @@ if __name__ == "__main__":
         wIc_pix = pose_stream[name_q]['T_refined']
         cIw_sfm = get_camera_in_world_from_pixpose(wIc_pix)
         if not name_q in list(input_images.keys())[number] and list(input_images.keys())[number] not in name_q:
+<<<<<<< HEAD
             assert False, "something went wront in the image naming or ordering"
+=======
+            print(name_q, list(input_images.keys())[number])
+>>>>>>> origin/main
         result_img = add_pose_axes(input_images[list(input_images.keys())[number]], camera, cIw_sfm, object_center)
         Image.fromarray(result_img).save(os.path.join(args.output_folder, name_q))
 

@@ -247,7 +247,11 @@ if __name__ == '__main__':
     pose_stream = pkl.load(open(poses_path, 'rb'))
     recon = pycolmap.Reconstruction(sfm_dir)
     nerf2sfm = load_nerf2sfm(nerf2sfm_path)
+<<<<<<< HEAD
     testbed = initialize_ingp(str(nerf_path), background=[1., 1., 1., 1])
+=======
+    testbed = initialize_ingp(str(nerf_path), background=[0., 0., 0., 0])
+>>>>>>> origin/main
 
     for name_q in tqdm.tqdm(pose_stream):
         path_q = pose_stream[name_q]['query_path']
@@ -285,8 +289,12 @@ if __name__ == '__main__':
             result_img = add_normalized_query_image(result_img, path_q, tracked_roll, tracked_center)
 
         base_result_image = result_img.copy()
+<<<<<<< HEAD
         if not args.no_axes:
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
+=======
+        object_center = ast.literal_eval(os.environ['OBJ_CENTER']) + [0]
+>>>>>>> origin/main
         if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
 
@@ -296,7 +304,11 @@ if __name__ == '__main__':
             os.mkdir(pose_axis_dir)
         result_path = os.path.join(pose_axis_dir, result_name)
         if not args.no_axes:
+<<<<<<< HEAD
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
+=======
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
+>>>>>>> origin/main
         cv2.imwrite(result_path, result_img)
         # To get the contour!
         gray = cv2.cvtColor(nerf_img, cv2.COLOR_RGB2GRAY) # convert to grayscale
@@ -322,7 +334,11 @@ if __name__ == '__main__':
         if args.reference_image:
             result_img = add_reference_images(result_img, recon, ref_ids, sfm_images_dir)
         if not args.no_axes:
+<<<<<<< HEAD
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
+=======
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
+>>>>>>> origin/main
         if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path, result_img)
@@ -337,7 +353,11 @@ if __name__ == '__main__':
         if args.reference_image:
             result_img = add_reference_images(result_img, recon, ref_ids, sfm_images_dir)
         if not args.no_axes:
+<<<<<<< HEAD
             result_img = add_pose_axes(result_img, camera, cIw_sfm)
+=======
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
+>>>>>>> origin/main
         if args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path_segmask, result_img)

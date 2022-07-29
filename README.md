@@ -5,7 +5,6 @@ A Computer Vision method for Object Tracking which uses NeRF templates and featu
 With `pixtrack`, you can:
 1. Create an object-level NeRF and a corresponding SFM model capturing its 3D keypoint structure
 2. Run 6-DoF object tracking on a video file and visualize the pose trajectory of the object with respect to the camera
-
 ---
 
 ## Getting Started: One time setup
@@ -13,7 +12,7 @@ With `pixtrack`, you can:
 Follow these steps:
 
 ```bash
-git clone git@bitbucket.org:ai_giant_global/pixtrack.git
+git clone git@github.com:GiantAI/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
 source run_docker_tolkien.sh
