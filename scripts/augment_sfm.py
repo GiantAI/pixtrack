@@ -1,13 +1,16 @@
-import os
-import sys
 import argparse
-import shutil
 import glob
+import os
 from pathlib import Path
-from pixtrack.utils.hloc_utils import add_rotation_augmentation_to_features_and_matches, augment_images_and_points3D, create_db_from_model
+import shutil
+import sys
+
 from hloc.triangulation import import_features, import_matches
 from hloc import pairs_from_exhaustive
 import pycolmap
+
+from pixtrack.utils.hloc_utils import add_rotation_augmentation_to_features_and_matches, augment_images_and_points3D, create_db_from_model
+
 
 def main(output):
     sfm_dir = output / 'aug_sfm'
@@ -55,4 +58,3 @@ if __name__ == '__main__':
         shutil.copytree(args.ref_output, args.aug_output)
         print('Done: Copying reference sfm')
     main(args.aug_output)
-

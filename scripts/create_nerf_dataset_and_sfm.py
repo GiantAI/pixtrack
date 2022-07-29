@@ -1,14 +1,18 @@
-import os
+import argparse
 import ast
-import sys
 import json
+import os
+from pathlib import Path
+import sys
+
 import numpy as np
 import tqdm
 import cv2
-from pathlib import Path
+
 from hloc import extract_features, match_features, reconstruction, visualization, pairs_from_exhaustive, triangulation
-import argparse
+
 from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
+
 
 def create_features_matches(images, outputs):
     images = Path(images)
@@ -73,6 +77,7 @@ def triangulate_nerf_views(ref_sfm_path, out_dir):
                               skip_geometric_verification=False,
                               min_match_score=None, verbose=True)
     return model
+
 
 if __name__ == '__main__':
     obj = Path(os.environ['OBJECT'])

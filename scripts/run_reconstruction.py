@@ -1,6 +1,9 @@
-import os
-import tqdm
+import argparse
 from pathlib import Path
+import os
+
+import tqdm
+
 from hloc import extract_features, match_features, reconstruction, pairs_from_exhaustive, visualization
 from hloc.visualization import plot_images, read_image
 from hloc.utils.viz_3d import init_figure, plot_points, plot_reconstruction, plot_camera_colmap
@@ -8,7 +11,7 @@ from pixsfm.util.visualize import init_image, plot_points2D
 from pixsfm.refine_hloc import PixSfM
 from pixsfm import ostream_redirect
 import pycolmap
-import argparse
+
 
 def main(images_path, outputs_path):
     images  = Path(images_path)
@@ -35,6 +38,7 @@ def main(images_path, outputs_path):
     refined, sfm_outputs = sfm.reconstruction(ref_dir, images, sfm_pairs, features, matches, 
                                               image_list=references, camera_mode=pycolmap.CameraMode.SINGLE)
     print('Done')
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
