@@ -2,6 +2,8 @@
 
 A Computer Vision method for Object Tracking which uses NeRF templates and feature-metric alignment to robustly track the 6DoF pose of a known object.
 
+[![PixTrack](https://img.youtube.com/vi/yQtCUS3i9nc/0.jpg)](https://www.youtube.com/watch?v=yQtCUS3i9nc)
+
 With `pixtrack`, you can:
 1. Create an object-level NeRF and a corresponding SFM model capturing its 3D keypoint structure
 2. Run 6-DoF object tracking on a video file and visualize the pose trajectory of the object with respect to the camera
