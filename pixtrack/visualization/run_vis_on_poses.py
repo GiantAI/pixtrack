@@ -272,10 +272,10 @@ if __name__ == '__main__':
             tracked_roll = pose_stream[name_q]['tracked_roll']
             tracked_center = pose_stream[name_q]['tracked_center']
             result_img = add_normalized_query_image(result_img, path_q, tracked_roll, tracked_center)
-
+        object_center = ast.literal_eval(os.environ['OBJ_CENTER']) + [0]
         base_result_image = result_img.copy()
         if not args.no_axes:
-            result_img = add_pose_axes(result_img, camera, cIw_sfm)
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
         if not args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
 
@@ -285,7 +285,7 @@ if __name__ == '__main__':
             os.mkdir(pose_axis_dir)
         result_path = os.path.join(pose_axis_dir, result_name)
         if not args.no_axes:
-            result_img = add_pose_axes(result_img, camera, cIw_sfm)
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
         cv2.imwrite(result_path, result_img)
         # To get the contour!
         gray = cv2.cvtColor(nerf_img, cv2.COLOR_RGB2GRAY) # convert to grayscale
@@ -305,7 +305,7 @@ if __name__ == '__main__':
         if args.reference_image:
             result_img = add_reference_images(result_img, recon, ref_ids, sfm_images_dir)
         if not args.no_axes:
-            result_img = add_pose_axes(result_img, camera, cIw_sfm)
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
         if not args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path, result_img)

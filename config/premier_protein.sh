@@ -13,6 +13,7 @@ export SNAPSHOT_PATH=$SNAPSHOT_PATH
 export PIXTRACK_OUTPUTS=$PIXTRACK_OUTPUTS
 export OBJ_AABB="[[0.359, -0.248, 0.047], [0.627, 0.223, 0.574]]"
 export UPRIGHT_REF_IMG="mapping/IMG_2520.png"
+export OBJ_CENTER="[-0.0914, 0.747, 1.1]"
 
 if [ -d $SNAPSHOT_PATH ] 
 then

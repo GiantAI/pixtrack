@@ -7,7 +7,6 @@ A Computer Vision method for Object Tracking which uses NeRF templates and featu
 With `pixtrack`, you can:
 1. Create an object-level NeRF and a corresponding SFM model capturing its 3D keypoint structure
 2. Run 6-DoF object tracking on a video file and visualize the pose trajectory of the object with respect to the camera
-
 ---
 
 ## Getting Started: One time setup

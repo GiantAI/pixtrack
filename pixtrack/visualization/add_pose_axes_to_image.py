@@ -1,14 +1,15 @@
+import argparse
+import ast
+import re
+import os
+
 import cv2 
 import numpy as np
-import os
-import re
 from pathlib import Path
 from PIL import Image
 import tqdm
-import argparse
 import pickle as pkl
 import pycolmap
-
 
 from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image
 
@@ -18,6 +19,7 @@ def project_3d_to_2d(pts_3d, K=np.eye(3)):
     pts_2d = pts_2d / pts_2d[2, :]
     pts_2d = pts_2d[:2, :].T
     return pts_2d
+
 
 def draw_axes(image, pts_3d, K=np.eye(3), t=10):
     pts_2d = project_3d_to_2d(pts_3d, K).astype(np.int16)
@@ -77,9 +79,7 @@ if __name__ == "__main__":
 
     sfm_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj) / 'aug_sfm'
     recon = pycolmap.Reconstruction(sfm_dir)
-    object_center = list(np.mean([recon.points3D[x].xyz for x in recon.points3D], axis=0))
-    object_center += [0]
-
+    object_center = ast.literal_eval(os.environ['OBJ_CENTER']) + [0]
     poses_path = Path(args.pixtrack_output) / 'poses.pkl'
     pose_stream = pkl.load(open(poses_path, 'rb'))
     input_images = read_images_from_folder(args.input_folder)
@@ -96,7 +96,8 @@ if __name__ == "__main__":
         wIc_pix = pose_stream[name_q]['T_refined']
         cIw_sfm = get_camera_in_world_from_pixpose(wIc_pix)
         if not name_q in list(input_images.keys())[number] and list(input_images.keys())[number] not in name_q:
-            assert False, "something went wront in the image naming or ordering"
+            print(name_q, list(input_images.keys())[number])
+            assert False, "something went wront in the image ordering"
         result_img = add_pose_axes(input_images[list(input_images.keys())[number]], camera, cIw_sfm, object_center)
         Image.fromarray(result_img).save(os.path.join(args.output_folder, name_q))
 
