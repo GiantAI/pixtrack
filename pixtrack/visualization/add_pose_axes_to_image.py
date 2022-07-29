@@ -1,19 +1,15 @@
-import cv2 
-<<<<<<< HEAD
-=======
+import argparse
 import ast
-
->>>>>>> origin/main
-import numpy as np
-import os
 import re
+import os
+
+import cv2 
+import numpy as np
 from pathlib import Path
 from PIL import Image
 import tqdm
-import argparse
 import pickle as pkl
 import pycolmap
-
 
 from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image
 
@@ -23,6 +19,7 @@ def project_3d_to_2d(pts_3d, K=np.eye(3)):
     pts_2d = pts_2d / pts_2d[2, :]
     pts_2d = pts_2d[:2, :].T
     return pts_2d
+
 
 def draw_axes(image, pts_3d, K=np.eye(3), t=10):
     pts_2d = project_3d_to_2d(pts_3d, K).astype(np.int16)
