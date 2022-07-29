@@ -20,11 +20,7 @@ def merge_images(images1, images2):
     merged_images = []
     for image_number in range(len(images1)):
         # Assumuing black background for the nerf images.
-<<<<<<< HEAD
-        merged_images.append(np.minimum(images1[image_number], images2[image_number]).astype(np.uint8))
-=======
         merged_images.append(np.maximum(images1[image_number], images2[image_number]).astype(np.uint8))
->>>>>>> origin/main
     return merged_images
 
 
