@@ -15,7 +15,7 @@ With `pixtrack`, you can:
 Follow these steps:
 
 ```bash
-git clone git@bitbucket.org:ai_giant_global/pixtrack.git
+git clone git@github.com:GiantAI/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
 source run_docker_tolkien.sh
