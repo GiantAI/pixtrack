@@ -37,10 +37,10 @@ An example config file is provided (config/gimble.sh).
 Once data is collected (step 1), and assuming the paths are set in the config file, run the following (steps 2-4):
 ```bash
 source config/gimble.sh 
-python3 run_reconstruction.py --images_path $PIXSFM_DATASETS/$OBJECT/ --outputs_path $PIXSFM_OUTPUTS/$OBJECT 
+python3 scripts/run_reconstruction.py --images_path $PIXSFM_DATASETS/$OBJECT/ --outputs_path $PIXSFM_OUTPUTS/$OBJECT 
 source train_ingp_nerf.sh 
-python3 create_nerf_dataset_and_sfm.py
-python3 augment_sfm.py
+python3 scripts/create_nerf_dataset_and_sfm.py
+python3 scripts/augment_sfm.py
 ```
 
 ---
