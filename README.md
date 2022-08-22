@@ -20,7 +20,7 @@ Step2: Setting up the environment.
 git clone git@github.com:GiantAI/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
-source run_docker_tolkien.sh
+source run_docker.sh
 cd pixtrack
 source setup.sh
 ```
