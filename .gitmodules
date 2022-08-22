@@ -7,6 +7,7 @@
 [submodule "instant-ngp"]
 	path = instant-ngp
 	url = https://github.com/NVlabs/instant-ngp.git
+	branch = master
 [submodule "pixel-perfect-sfm"]
 	path = pixel-perfect-sfm
 	url = https://github.com/cvg/pixel-perfect-sfm.git
