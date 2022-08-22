@@ -13,6 +13,7 @@ With `pixtrack`, you can:
 
 Follow these steps:
 Step1: 
+
 Update the cuda version in `DockerFile` in line 1 to the version on your machine/server. 
 
 Step2:
