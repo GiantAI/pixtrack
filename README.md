@@ -12,12 +12,10 @@ With `pixtrack`, you can:
 ## Getting Started: One time setup
 
 Follow these steps:
-Step1: 
 
-Update the cuda version in `DockerFile` in line 1 to the version on your machine/server. 
+Step1: Update the cuda version in `DockerFile` in line 1 to the version on your machine/server. 
 
-Step2:
-```bash
+Step2:```bash
 git clone git@github.com:GiantAI/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
