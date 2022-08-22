@@ -13,7 +13,7 @@ With `pixtrack`, you can:
 
 Follow these steps:
 
-Step1: Update the cuda version in [pixtrack/DockerFile](https://github.com/GiantAI/pixtrack/blob/main/Dockerfile#L1) in line 1 to the version on your machine/server. 
+Step1: Update the cuda version in [pixtrack/DockerFile](https://github.com/GiantAI/pixtrack/blob/main/Dockerfile#L1) and [setup.sh](https://github.com/GiantAI/pixtrack/blob/main/setup.sh#L28) to the version on your machine/server. 
 
 Step2: Setting up the environment. 
 ```bash
