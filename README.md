@@ -48,6 +48,8 @@ python3 scripts/create_nerf_dataset_and_sfm.py
 python3 scripts/augment_sfm.py
 ```
 
+An example dataset of the `premier_protein` object can be found [here](https://drive.google.com/drive/folders/131AnpOUKmA2hQmHMFZO5JdsFy6JYojME?usp=sharing) 
+
 ---
 
 ## Run object tracking
