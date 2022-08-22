@@ -162,12 +162,8 @@ RUN pip3 install smplx
 RUN pip3 install pycocotools
 RUN pip3 install ipdb 
 RUN pip3 install lpips 
-RUN pip3 install jax==0.2.9
-RUN pip3 install jaxlib>=0.1.57
-RUN pip3 install flax>=0.3.1
 RUN pip3 install pyyaml 
 RUN pip3 install pymcubes
-RUN pip3 install --upgrade jax[cuda11_cudnn805] -f https://storage.googleapis.com/jax-releases/jax_releases.html
 RUN pip3 install rtree
 RUN pip3 install --upgrade git+https://github.com/colmap/pycolmap
 RUN pip3 install h5py
