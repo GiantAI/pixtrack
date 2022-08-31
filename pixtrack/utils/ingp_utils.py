@@ -8,10 +8,12 @@ import pyngp as ngp
 import pickle as pkl
 import ast
 
-def load_nerf2sfm(path='/home/prajwal.chidananda/code/instant-ngp/data/nerf/gimble_04MAR2022/nerf2sfm.pkl'):
+
+def load_nerf2sfm(path):
     with open(path, 'rb') as f:
         nerf2sfm = pkl.load(f)
     return nerf2sfm
+
 
 def initialize_ingp(snapshot_path, 
         aabb=ast.literal_eval(os.environ['OBJ_AABB']), background=None):
