@@ -13,11 +13,14 @@ With `pixtrack`, you can:
 
 Follow these steps:
 
+Step1: Update the cuda version in [pixtrack/DockerFile](https://github.com/GiantAI/pixtrack/blob/main/Dockerfile#L1) and [setup.sh](https://github.com/GiantAI/pixtrack/blob/main/setup.sh#L28) to the version on your machine/server. 
+
+Step2: Setting up the environment. 
 ```bash
 git clone git@github.com:GiantAI/pixtrack.git
 cd pixtrack
 docker build -t pixtrack .
-source run_docker_tolkien.sh
+source run_docker.sh
 cd pixtrack
 source setup.sh
 ```
@@ -44,6 +47,8 @@ source train_ingp_nerf.sh
 python3 scripts/create_nerf_dataset_and_sfm.py
 python3 scripts/augment_sfm.py
 ```
+
+An example dataset of the `premier_protein` object can be found [here](https://drive.google.com/drive/folders/131AnpOUKmA2hQmHMFZO5JdsFy6JYojME?usp=sharing) 
 
 ---
 
