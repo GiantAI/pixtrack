@@ -89,7 +89,8 @@ def write_matches(match_path, name0, name1, matches, scores=None):
             grp.create_dataset('matching_scores0', data=scores)
     return
 
-def add_rotation_augmentation_to_features_and_matches(image_list, images, features_path, matches_path, angle_step=30):
+def add_rotation_augmentation_to_features_and_matches(image_list, images, features_path, matches_path, angle_step=30, 
+                                                      save_images=False, save_features=False, save_matches=False):
     completed_images = copy.deepcopy(image_list)
     image_dict = defaultdict(dict)
     for image_name in tqdm.tqdm(image_list):
@@ -98,20 +99,23 @@ def add_rotation_augmentation_to_features_and_matches(image_list, images, featur
         img = read_image(image_path)
         height, width = img.shape[:2]
         center = (width / 2., height / 2.)
-        for angle in tqdm.tqdm(range(angle_step, 360, angle_step)):
+        for angle in range(angle_step, 360, angle_step):
+
+            aug_name = 'mapping/%d_%s' % (angle, image_name.split('/')[-1])
+            out_path = str(images / aug_name)
+
             # Rotate image
             rotate_matrix = cv2.getRotationMatrix2D(center=center, 
                                             angle=angle, 
                                             scale=1)
-            rotated_image = cv2.warpAffine(src=img, 
-                                       M=rotate_matrix, 
-                                       dsize=(width, height),
-                                       borderValue=(255, 255, 255))
-            # Save image
-            aug_name = 'mapping/%d_%s' % (angle, image_name.split('/')[-1])
-            out_path = str(images / aug_name)
-            rotated_image = cv2.cvtColor(rotated_image, cv2.COLOR_RGB2BGR)
-            cv2.imwrite(out_path, rotated_image)
+            if save_images:
+                rotated_image = cv2.warpAffine(src=img, 
+                                           M=rotate_matrix, 
+                                           dsize=(width, height),
+                                           borderValue=(255, 255, 255))
+                # Save image
+                rotated_image = cv2.cvtColor(rotated_image, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(out_path, rotated_image)
 
             # Rotate keypoints
             kps_src = features_dict_orig['keypoints']
@@ -121,25 +125,27 @@ def add_rotation_augmentation_to_features_and_matches(image_list, images, featur
             features_dict['keypoints'] = kps_aug
 
             # Save features
-            write_features(features_path, aug_name, features_dict)
+            if save_features:
+                write_features(features_path, aug_name, features_dict)
             
             # Write matches
-            for mimage in completed_images:
-                try:
-                    matches, scores = get_matches(matches_path, image_name, mimage)
-                except Exception as e:
-                    continue
-                matches_arr = np.ones(kps_aug.shape[0]) * -1
-                matches_arr[matches[:, 0]] = matches[:, 1]
+            if save_matches:
+                for mimage in completed_images:
+                    try:
+                        matches, scores = get_matches(matches_path, image_name, mimage)
+                    except Exception as e:
+                        continue
+                    matches_arr = np.ones(kps_aug.shape[0]) * -1
+                    matches_arr[matches[:, 0]] = matches[:, 1]
+                    matches_arr = matches_arr.astype(np.int16)
+                    scores_arr = np.zeros(kps_aug.shape[0])
+                    scores_arr[matches[:, 0]] = 0.999
+                    write_matches(matches_path, aug_name, mimage, matches_arr, scores_arr)
+                    
+                matches_arr = np.array(range(kps_aug.shape[0]))
                 matches_arr = matches_arr.astype(np.int16)
-                scores_arr = np.zeros(kps_aug.shape[0])
-                scores_arr[matches[:, 0]] = 0.999
-                write_matches(matches_path, aug_name, mimage, matches_arr, scores_arr)
-                
-            matches_arr = np.array(range(kps_aug.shape[0]))
-            matches_arr = matches_arr.astype(np.int16)
-            scores_arr = np.repeat(0.999, kps_aug.shape[0])
-            write_matches(matches_path, image_name, aug_name, matches_arr, scores_arr)
+                scores_arr = np.repeat(0.999, kps_aug.shape[0])
+                write_matches(matches_path, image_name, aug_name, matches_arr, scores_arr)
             
             completed_images.append(aug_name)
             image_dict[image_name][angle] = aug_name
@@ -229,7 +235,7 @@ def augment_images_and_points3D(outputs, image_dict):
         camera = cameras_bin[image.camera_id]
         point3D_ids = image.point3D_ids
 
-        for angle in tqdm.tqdm(image_dict[img_name]):
+        for angle in image_dict[img_name]:
             idx += 1
             aug_img = augment_rotation(model, image, angle, cameras_bin, 
                                        new_name=image_dict[img_name][angle], 
