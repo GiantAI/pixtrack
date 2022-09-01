@@ -26,9 +26,11 @@ def main(output):
     image_list = sorted(['/'.join(x.rsplit('/', 2)[-2:]) for x in image_list])
 
     # Get image dict
+    print('Adding rotation augmentation')
     image_dict = add_rotation_augmentation_to_features_and_matches(image_list, images, features, matches)
 
     # Augment images and 3d points
+    print('Creating new sfm binaries')
     augmented_images = augment_images_and_points3D(output, image_dict)
 
     # Create new sfm database
@@ -38,10 +40,12 @@ def main(output):
 
     # Import features and matches
     ref_imgs = image_list + [image_dict[x][y] for x in image_dict for y in image_dict[x]]
-    pairs_from_exhaustive.main(sfm_pairs, image_list=ref_imgs)
-    import_features(image_ids, database, features)
-    import_matches(image_ids, database, sfm_pairs, matches,
+    pairs_from_exhaustive.main(sfm_pairs, image_list=image_list)
+    original_ids = {x: image_ids[x] for x in image_ids if image_ids[x] <= len(image_list)}
+    import_features(original_ids, database, features)
+    import_matches(original_ids, database, sfm_pairs, matches,
                    min_match_score=None, skip_geometric_verification=False)
+    print('Done!')
 
 if __name__ == '__main__':
     obj = Path(os.environ['OBJECT'])
