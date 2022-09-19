@@ -1,11 +1,10 @@
-FROM nvidia/cuda:11.1.1-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04
  
-MAINTAINER Prajwal Chidananda prajwal.chidananda@giant.ai
+MAINTAINER Prajwal Chidananda prajwal.chidanand@gmail.com Saurabh Nair saurabh.nk@gmail.com
 
 ENV DEBIAN_FRONTEND=noninteractive 
 
 RUN rm /etc/apt/sources.list.d/cuda.list
-RUN rm /etc/apt/sources.list.d/nvidia-ml.list
 
 RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
   apt-utils \
@@ -110,7 +109,7 @@ RUN git clone https://github.com/mmatl/pyopengl.git
 RUN pip3 install ./pyopengl
 RUN pip3 install pyrender
 
-RUN pip3 install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip3 install torch==1.12.1+cu116 torchvision==0.13.0+cu116 -f https://download.pytorch.org/whl/torch_stable.html
 RUN pip3 install imageio
 RUN pip3 install imageio-ffmpeg
 RUN pip3 install matplotlib
@@ -171,7 +170,6 @@ RUN pip3 install omegaconf
 RUN pip3 install packaging
 ENV FORCE_CUDA=1
 RUN pip3 install "git+https://github.com/facebookresearch/pytorch3d.git@stable"
-RUN pip3 install svox
 RUN pip3 install ffmpeg-python
 RUN pip3 install snakeviz
 RUN pip3 install commentjson
