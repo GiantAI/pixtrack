@@ -4,6 +4,8 @@ import argparse
 from pathlib import Path
 import numpy as np
 import pycolmap
+import cv2
+from tqdm import tqdm
 from pixtrack.utils.pytorch3d_render_utils import (create_look_at_poses_for_mesh, 
                                                    render_image,
                                                    create_colmap_camera,
@@ -24,30 +26,12 @@ from hloc.reconstruction import (create_empty_db,
 from hloc.utils.read_write_model import (write_images_binary, 
                                          write_points3D_binary,
                                          write_cameras_binary)
-import cv2
-from tqdm import tqdm
 
-if __name__ == '__main__':
-    object_name = os.environ['OBJECT']
-    #default_output_path = Path(os.environ['PIXSFM_OUTPUTS']) / object_name
-    default_output_path = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / object_name
-    #default_dataset_path = Path(os.environ['PIXSFM_DATASETS']) / object_name
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--mesh_path', required=True, type=Path)
-    parser.add_argument('--output_path', default=default_output_path, type=Path)
-    parser.add_argument('--dataset_path', default=default_output_path, type=Path)
-    args = parser.parse_args()
 
+def render_dataset_and_get_colmap_images_and_cameras(mesh_path, dataset_path, 
+                                                     fx, fy, cx, cy, W, H):
     mesh_path = args.mesh_path
     Rs, Ts, mesh = create_look_at_poses_for_mesh(mesh_path, subdivisions=2)
-    fx = 2700.
-    fy = 2700.
-    cx = 512. * 3
-    cy = 512. * 3
-    W = 1024 * 3
-    H = 1024 * 3
-
-    dataset_path = args.dataset_path
     dataset_path.mkdir(parents=True, exist_ok=True)
     mapping_path = dataset_path / 'mapping'
     mapping_path.mkdir(parents=True, exist_ok=True)
@@ -71,10 +55,15 @@ if __name__ == '__main__':
                                                           colmap_image_id,
                                                           colmap_camera_id)
         colmap_images[colmap_image_id] = colmap_image
+    return colmap_images, colmap_cameras
 
-    # Extract features and matches
+
+def create_sfm_from_colmap_images_and_cameras(dataset_path, output_path,
+                                              colmap_images, colmap_cameras): 
+
+    # Configure SFM
     images = Path(dataset_path)
-    outputs = Path(args.output_path)
+    outputs = Path(output_path)
     
     sfm_pairs = outputs / 'pairs-sfm.txt'
     loc_pairs = outputs / 'pairs-loc.txt'
@@ -90,6 +79,7 @@ if __name__ == '__main__':
     references = [str(p.relative_to(images)) for p in (images / 'mapping/').iterdir()]
     print(len(references), "mapping images")
     
+    # Extract features and matches
     extract_features.main(feature_conf, images, image_list=references, feature_path=features)
     pairs_from_exhaustive.main(sfm_pairs, image_list=references)
     match_features.main(matcher_conf, sfm_pairs, features=features, matches=matches)
@@ -99,9 +89,8 @@ if __name__ == '__main__':
     assert pairs.exists(), pairs
     assert matches.exists(), matches
 
-    
+    # Create a database and import images, features and matches
     raw_dir.mkdir(parents=True, exist_ok=True)
-
     database = raw_dir / 'database.db'
     create_empty_db(database)
     camera_mode = 'AUTO'
@@ -116,10 +105,12 @@ if __name__ == '__main__':
                    skip_geometric_verification=False)
     geometric_verification(database, pairs, verbose=True)
 
+    # Create images, cameras and points3D binaries
     write_images_binary(colmap_images, raw_dir / 'images.bin')
     write_cameras_binary(colmap_cameras, raw_dir / 'cameras.bin')
-    write_points3D_binary({}, raw_dir / 'points3D.bin')
+    write_points3D_binary({}, raw_dir / 'points3D.bin') #Should be empty
 
+    # Triangulate for 3D points
     reference = pycolmap.Reconstruction(raw_dir)
     sfm_dir.mkdir(parents=True, exist_ok=True)
     database = sfm_dir / 'database.db'
@@ -128,3 +119,35 @@ if __name__ == '__main__':
                        pairs, features, matches,
                        skip_geometric_verification=False, 
                        min_match_score=None, verbose=True)
+
+    return
+
+if __name__ == '__main__':
+    object_name = os.environ['OBJECT']
+    default_output_path = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / object_name
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mesh_path', required=True, type=Path)
+    parser.add_argument('--output_path', default=default_output_path, type=Path)
+    parser.add_argument('--dataset_path', default=default_output_path, type=Path)
+    args = parser.parse_args()
+
+    #TODO @prajwal: Choose these parameters automatically instead on hardcoding them
+    fx = 900. * 3
+    fy = 900. * 3
+    cx = 512. * 3
+    cy = 512. * 3
+    W = 1024 * 3
+    H = 1024 * 3
+    dataset_path = args.dataset_path
+    output_path = args.output_path
+    mesh_path = args.mesh_path
+
+    # Render images from obj, get colmap images and cameras
+    render_dataset_and_get_colmap_images_and_cameras(mesh_path, dataset_path, 
+                                                     fx, fy, cx, cy, W, H)
+
+    # Create sfm from colmap images and cameras
+    create_sfm_from_colmap_images_and_cameras(dataset_path, output_path,
+                                              colmap_images, colmap_cameras)
+
+

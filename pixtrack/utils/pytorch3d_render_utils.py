@@ -3,6 +3,7 @@ import trimesh
 import numpy as np
 import pycolmap
 from scipy.spatial.transform import Rotation as R
+
 # Util function for loading meshes
 from pytorch3d.io import load_objs_as_meshes, load_obj
 
@@ -56,8 +57,6 @@ def create_look_at_poses_for_mesh(mesh_path, subdivisions=2):
     return Rs, Ts, mesh
 
 def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device='cuda:0'):
-    # Load mesh
-    #mesh = load_objs_as_meshes([mesh_path], device=device)
 
     # Create cameras
     assert fx == fy
@@ -100,11 +99,14 @@ def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device='cuda:0'):
     return image
 
 def create_colmap_image_from_pytorch3d_RT(R, T, image_name, image_id, camera_id):
-    tr = np.eye(3)
-    tr[0, 0] = -1.
-    tr[1, 1] = -1.
-    rot = R @ tr
-    qvec = pycolmap.rotmat_to_qvec(rot.T)
+    
+    # Flip x, y axes
+    flip = np.eye(3)
+    flip[0, 0] = -1.
+    flip[1, 1] = -1.
+    R_colmap = R @ flip
+
+    qvec = pycolmap.rotmat_to_qvec(R_colmap.T)
     tvec = T
     image = Image(id=image_id, qvec=qvec, tvec=tvec,
                   camera_id=camera_id, name=image_name,
