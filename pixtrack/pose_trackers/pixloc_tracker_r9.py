@@ -24,6 +24,7 @@ import cv2
 import pickle as pkl
 import argparse
 
+
 class PixLocPoseTrackerR9(PoseTracker):
     def __init__(self, data_path, loc_path, eval_path, debug=False):
         default_paths = Paths(
@@ -34,7 +35,7 @@ class PixLocPoseTrackerR9(PoseTracker):
                             global_descriptors='features.h5',
                             retrieval_pairs='pairs_query.txt',
                             results='pixloc_object.txt',)
-        conf = {
+        pixloc_conf = {
                 'experiment': 'pixloc_megadepth',
                 'features': {},
                 'optimizer': {
@@ -50,11 +51,12 @@ class PixLocPoseTrackerR9(PoseTracker):
                                'do_pose_approximation': False,
                               },
                 }
+
         self.debug = debug
         paths = default_paths.add_prefixes(Path(data_path), 
                                            Path(loc_path), 
                                            Path(eval_path))
-        self.localizer = PoseTrackerLocalizer(paths, conf)
+        self.localizer = PoseTrackerLocalizer(paths, pixloc_conf)
         self.eval_path = eval_path
         covis_path = Path(paths.reference_sfm) / 'covis.pkl'
         if os.path.isfile(covis_path):
@@ -76,18 +78,9 @@ class PixLocPoseTrackerR9(PoseTracker):
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         self.testbed = initialize_ingp(str(nerf_path))
         self.dynamic_id = None
-        #self.THRESH = self.get_dynamic_thresh()
         self.hits = 0
         self.misses = 0
         self.cache_hit = False
-
-    def get_dynamic_thresh(self):
-        im1 = self.localizer.model3d.dbs[self.localizer.model3d.name2id['mapping/IMG_9531.png']]
-        im2 = self.localizer.model3d.dbs[self.localizer.model3d.name2id['mapping/30_IMG_9531.png']]
-        R1 = im1.qvec2rotmat()
-        R2 = im2.qvec2rotmat()
-        dist = geodesic_distance_for_rotations(R1, R2)
-        return dist
 
     def relocalize(self, query_path):
         if self.cold_start:
@@ -96,8 +89,7 @@ class PixLocPoseTrackerR9(PoseTracker):
         ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
         rotation = ref_img.qvec2rotmat()
         translation = ref_img.tvec
-        pose_init = Pose.from_Rt(rotation,
-                                 translation)
+        pose_init = Pose.from_Rt(rotation, translation)
         self.pose = pose_init
         return 
 
@@ -120,7 +112,6 @@ class PixLocPoseTrackerR9(PoseTracker):
         cimg = self.localizer.model3d.dbs[curr_refs[0]]
         R_ref = cimg.qvec2rotmat()
         curr_gdist = geodesic_distance_for_rotations(R_qry, R_ref)
-
 
         covis = self.covis[curr_refs[0]]
         N = 50
@@ -197,7 +188,6 @@ class PixLocPoseTrackerR9(PoseTracker):
 
         return self.dynamic_id
 
-
     def refine(self, query):
         query_path, query_image = query
         if self.cold_start:
@@ -249,6 +239,7 @@ class PixLocPoseTrackerR9(PoseTracker):
         path = os.path.join(self.eval_path, 'poses.pkl')
         with open(path, 'wb') as f:
             pkl.dump(self.pose_history, f)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
