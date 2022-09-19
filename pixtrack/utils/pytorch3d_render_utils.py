@@ -3,11 +3,8 @@ import trimesh
 import numpy as np
 import pycolmap
 from scipy.spatial.transform import Rotation as R
-
-# Util function for loading meshes
+from hloc.utils.read_write_model import Camera, Image
 from pytorch3d.io import load_objs_as_meshes, load_obj
-
-# Data structures and functions for rendering
 from pytorch3d.structures import Meshes
 from pytorch3d.vis.plotly_vis import AxisArgs, plot_batch_individually, plot_scene
 from pytorch3d.vis.texture_vis import texturesuv_image_matplotlib
@@ -25,9 +22,8 @@ from pytorch3d.renderer import (
     MeshRasterizer,  
     SoftPhongShader,
     TexturesUV,
-    TexturesVertex
-)
-from hloc.utils.read_write_model import Camera, Image
+    TexturesVertex)
+
 
 def create_look_at_camera_poses(radius, subdivisions=2):
     sph = trimesh.creation.icosphere(subdivisions=subdivisions, 
@@ -106,6 +102,7 @@ def create_colmap_image_from_pytorch3d_RT(R, T, image_name, image_id, camera_id)
     flip[1, 1] = -1.
     R_colmap = R @ flip
 
+    # Create colmap image
     qvec = pycolmap.rotmat_to_qvec(R_colmap.T)
     tvec = T
     image = Image(id=image_id, qvec=qvec, tvec=tvec,

@@ -57,25 +57,20 @@ def render_dataset_and_get_colmap_images_and_cameras(mesh_path, dataset_path,
         colmap_images[colmap_image_id] = colmap_image
     return colmap_images, colmap_cameras
 
-
 def create_sfm_from_colmap_images_and_cameras(dataset_path, output_path,
                                               colmap_images, colmap_cameras): 
-
     # Configure SFM
     images = Path(dataset_path)
     outputs = Path(output_path)
-    
     sfm_pairs = outputs / 'pairs-sfm.txt'
     loc_pairs = outputs / 'pairs-loc.txt'
     features = outputs / 'features.h5'
     matches = outputs / 'matches.h5'
     raw_dir = outputs / "raw"
     sfm_dir = outputs / "sfm"
-    
     feature_conf = extract_features.confs['superpoint_max']
     matcher_conf = match_features.confs['superglue']
     matcher_conf['model']['weights'] = 'indoor'
-    
     references = [str(p.relative_to(images)) for p in (images / 'mapping/').iterdir()]
     print(len(references), "mapping images")
     
@@ -83,7 +78,6 @@ def create_sfm_from_colmap_images_and_cameras(dataset_path, output_path,
     extract_features.main(feature_conf, images, image_list=references, feature_path=features)
     pairs_from_exhaustive.main(sfm_pairs, image_list=references)
     match_features.main(matcher_conf, sfm_pairs, features=features, matches=matches)
-
     pairs = sfm_pairs
     assert features.exists(), features
     assert pairs.exists(), pairs
@@ -119,7 +113,6 @@ def create_sfm_from_colmap_images_and_cameras(dataset_path, output_path,
                        pairs, features, matches,
                        skip_geometric_verification=False, 
                        min_match_score=None, verbose=True)
-
     return
 
 if __name__ == '__main__':
@@ -149,5 +142,4 @@ if __name__ == '__main__':
     # Create sfm from colmap images and cameras
     create_sfm_from_colmap_images_and_cameras(dataset_path, output_path,
                                               colmap_images, colmap_cameras)
-
 
