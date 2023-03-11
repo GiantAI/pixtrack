@@ -26,17 +26,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
   unzip \
   zip \
   htop \
+  ninja-build \
   libboost-program-options-dev \
   libboost-filesystem-dev \
   libboost-graph-dev \
   libboost-regex-dev \
   libboost-system-dev \
   libboost-test-dev \
+  libeigen3-dev \
+  libflann-dev \
   libsuitesparse-dev \
   libfreeimage-dev \
   libgoogle-glog-dev \
   libgflags-dev \
   libglew-dev \
+  libceres-dev \
+  libsqlite3-dev \
   qtbase5-dev \
   libqt5opengl5-dev \
   libcgal-dev \
@@ -72,21 +77,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends --fix-missing \
 RUN pip3 install --upgrade cmake
 
 # Eigen
-WORKDIR /opt
-RUN git clone --depth 1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git
-RUN cd eigen && mkdir build && cd build && cmake .. && make install
-
-# Ceres solver
-WORKDIR /opt
-RUN apt-get update
-RUN git clone https://ceres-solver.googlesource.com/ceres-solver
-WORKDIR /opt/ceres-solver
-RUN git checkout 2.1.0rc2
-RUN mkdir build
-WORKDIR /opt/ceres-solver/build
-RUN cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
-RUN make -j
-RUN make install
+#WORKDIR /opt
+#RUN git clone --depth 1 --branch 3.4.0 https://gitlab.com/libeigen/eigen.git
+#RUN cd eigen && mkdir build && cd build && cmake .. && make install
+#
+## Ceres solver
+#WORKDIR /opt
+#RUN apt-get update
+#RUN git clone https://ceres-solver.googlesource.com/ceres-solver
+#WORKDIR /opt/ceres-solver
+#RUN git checkout 2.1.0rc2
+#RUN mkdir build
+#WORKDIR /opt/ceres-solver/build
+#RUN cmake .. -DBUILD_TESTING=OFF -DBUILD_EXAMPLES=OFF
+#RUN make -j
+#RUN make install
 
 # Colmap
 WORKDIR /opt
@@ -95,9 +100,9 @@ WORKDIR /opt/colmap
 RUN git checkout dev
 RUN mkdir build
 WORKDIR /opt/colmap/build
-RUN cmake ..
-RUN make -j
-RUN make install
+RUN cmake .. -GNinja -DCMAKE_CUDA_ARCHITECTURES=native
+RUN ninja
+RUN ninja install
 
 # PyRender
 WORKDIR /
