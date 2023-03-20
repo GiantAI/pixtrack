@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
  
 MAINTAINER Prajwal Chidananda prajwal.chidanand@gmail.com Saurabh Nair saurabh.nk@gmail.com
 
@@ -114,7 +114,7 @@ RUN git clone https://github.com/mmatl/pyopengl.git
 RUN pip3 install ./pyopengl
 RUN pip3 install pyrender
 
-RUN pip3 install torch==1.12.1+cu116 torchvision==0.13.0+cu116 -f https://download.pytorch.org/whl/torch_stable.html
+RUN pip3 install torch torchvision
 RUN pip3 install imageio
 RUN pip3 install imageio-ffmpeg
 RUN pip3 install matplotlib

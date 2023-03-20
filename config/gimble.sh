@@ -1,8 +1,8 @@
-OBJECT="gimble_04MAR2022"
-SNAPSHOTS_ROOT="/data/pixtrack/instant-ngp/snapshots"
-PIXSFM_DATASETS="/data/pixtrack/pixel-perfect-sfm/datasets"
-PIXSFM_OUTPUTS="/data/pixtrack/pixel-perfect-sfm/outputs"
-PIXTRACK_OUTPUTS="/data/pixtrack/outputs"
+OBJECT="gimble_mar12_2023"
+SNAPSHOTS_ROOT="/home/wayve/data/pixtrack/instant-ngp/snapshots"
+PIXSFM_DATASETS="/home/wayve/data/pixtrack/pixel-perfect-sfm/datasets"
+PIXSFM_OUTPUTS="/home/wayve/data/pixtrack/pixel-perfect-sfm/outputs"
+PIXTRACK_OUTPUTS="/home/wayve/data/pixtrack/outputs"
 SNAPSHOT_PATH=$SNAPSHOTS_ROOT/$OBJECT
 
 export OBJECT=$OBJECT
