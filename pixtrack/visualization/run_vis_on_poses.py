@@ -3,8 +3,9 @@ import os
 import pickle as pkl
 import numpy as np
 import argparse
-from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image
+from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image, geodesic_distance_for_rotations
 from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose, nerf_to_sfm_pose
+
 import pycolmap
 import cv2
 import tqdm
@@ -12,26 +13,41 @@ import math
 from pathlib import Path
 
 
-def get_nerf_image(testbed, nerf_pose, camera):
+def get_nerf_image(testbed, nerf_pose, camera, depth=False):
     spp = 8
     width, height = camera.size
     width = int(width)
     height = int(height)
     fl_x = float(camera.f[0])
+    fl_y = float(camera.f[1])
     angle_x = math.atan(width / (fl_x * 2)) * 2
+    angle_y = math.atan(height / (fl_y * 2)) * 2
 
     testbed.fov = angle_x * 180 / np.pi
+    #testbed.fovx = angle_x * 180 / np.pi
+    #testbed.fovy = angle_y * 180 / np.pi
+    #testbed.fov_xy = np.array((angle_y * 180 / np.pi, angle_x * 180 / np.pi))
+
+
     testbed.set_nerf_camera_matrix(nerf_pose[:3, :])
 
+    #ncx = camera.c[0] / float(width)
+    #ncy = camera.c[1] / float(height)
+    #testbed.screen_center = np.array([ncy, ncx])
+
+    if depth:
+        testbed.render_mode = testbed.render_mode.Depth
     nerf_img = testbed.render(width, height, spp, True)
     nerf_img = nerf_img[:, :, :3] * 255.
     nerf_img = nerf_img.astype(np.uint8)
+    if depth:
+        testbed.render_mode = testbed.render_mode.Shade
     return nerf_img
 
 
 def get_query_image(path):
     assert os.path.isfile(path)
-    img = cv2.imread(path, -1)
+    img = cv2.imread(str(path), -1)
     return img
 
 def project_3d_to_2d(pts_3d, K=np.eye(3)):
@@ -230,18 +246,20 @@ if __name__ == '__main__':
     parser.add_argument('--reference_image', default=False) 
     parser.add_argument('--no_axes', action='store_true', default=False) 
     parser.add_argument('--obj_center', action='store_true', default=False) 
+    parser.add_argument('--pose_error', action='store_true', default=False)
     args = parser.parse_args()
 
     PROJECT_ROOT = os.environ['PROJECT_ROOT']
     obj = os.environ['OBJECT']
+    obj_path = Path(os.environ['OBJECT_PATH'])
     obj_aabb = os.environ['OBJ_AABB']
     obj_aabb = np.array(ast.literal_eval(obj_aabb)).copy()
 
     poses_path = Path(args.out_dir) / 'poses.pkl'
-    sfm_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj) / 'aug_sfm'
-    nerf_path = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
-    nerf2sfm_path = Path(os.environ['PIXSFM_DATASETS']) / obj / 'nerf2sfm.pkl'
-    sfm_images_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % obj)
+    sfm_dir = obj_path / 'pixtrack/aug_nerf_sfm/aug_sfm'
+    nerf_path = obj_path / 'pixtrack/instant-ngp/snapshots/weights.msgpack'
+    nerf2sfm_path = obj_path / 'pixtrack/pixsfm/dataset/nerf2sfm.pkl'
+    sfm_images_dir = obj_path / 'pixtrack/aug_nerf_sfm'
 
     pose_stream = pkl.load(open(poses_path, 'rb'))
     recon = pycolmap.Reconstruction(sfm_dir)
@@ -280,13 +298,36 @@ if __name__ == '__main__':
             result_img = add_object_center(result_img, camera, cIw_sfm)
 
         result_name = 'result_%s' % os.path.basename(path_q)
-        pose_axis_dir = os.path.join(args.out_dir, "pose_axes")
+        pose_axis_dir = os.path.join(args.out_dir, "results")
         if(not os.path.exists(pose_axis_dir)):
             os.mkdir(pose_axis_dir)
         result_path = os.path.join(pose_axis_dir, result_name)
         if not args.no_axes:
             result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
+
+        if args.pose_error and 'T_refined' in pose_stream[name_q]:
+            pr_R, pr_T = pose_stream[name_q]['T_refined'].numpy()
+            gt_R, gt_T = pose_stream[name_q]['gt_pose'].numpy()
+            rotation_error = geodesic_distance_for_rotations(gt_R, pr_R) * 180. / np.pi
+            translation_error = np.linalg.norm(gt_T - pr_T) * 100.
+
+            rerror_text = f'Rotation error: {rotation_error:.4f} degrees'
+            terror_text = f'Translation error: {translation_error:.4f} cm'
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            fontScale = 0.8
+            color = (255, 0, 0)
+            thickness = 2
+            text_anchor = (20, 30)
+            result_img = cv2.putText(result_img, rerror_text, text_anchor, font,
+                                     fontScale, color, thickness, cv2.LINE_AA)
+            text_anchor = (20, 60)
+            result_img = cv2.putText(result_img, terror_text, text_anchor, font,
+                                     fontScale, color, thickness, cv2.LINE_AA)
+
         cv2.imwrite(result_path, result_img)
+
+
+        '''
         # To get the contour!
         gray = cv2.cvtColor(nerf_img, cv2.COLOR_RGB2GRAY) # convert to grayscale
         blur = cv2.blur(gray, (3, 3)) # blur the image
@@ -324,3 +365,4 @@ if __name__ == '__main__':
         if not args.obj_center:
             result_img = add_object_center(result_img, camera, cIw_sfm)
         cv2.imwrite(result_path_segmask, result_img)
+        '''

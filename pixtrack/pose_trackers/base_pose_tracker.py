@@ -30,7 +30,8 @@ class PoseTracker:
 
     def run(self, query_path, max_frames=np.inf):
         frame_iterator = self.get_query_frame_iterator(query_path, max_frames)
-        for frame in tqdm.tqdm(frame_iterator):
+        self.pbar = tqdm.tqdm(frame_iterator)
+        for frame in self.pbar:
             self.run_single_frame(frame)
         return
 

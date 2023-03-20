@@ -31,9 +31,9 @@ from hloc.utils.read_write_model import (
 def render_dataset_and_get_colmap_images_and_cameras(
     mesh_path, dataset_path, fx, fy, cx, cy, W, H, k1, device, subdivisions=2
 ):
-    mesh_path = args.mesh_path
     Rs, Ts, mesh = create_look_at_poses_for_mesh(
-        mesh_path, subdivisions=subdivisions, device=device
+
+        fx, fy, W, H, mesh_path, subdivisions=subdivisions, device=device
     )
     dataset_path.mkdir(parents=True, exist_ok=True)
     mapping_path = dataset_path / "mapping"
@@ -70,7 +70,7 @@ def create_sfm_from_colmap_images_and_cameras(
     features = outputs / "features.h5"
     matches = outputs / "matches.h5"
     raw_dir = outputs / "raw"
-    sfm_dir = outputs / "sfm"
+    sfm_dir = outputs / "ref"
     feature_conf = extract_features.confs["superpoint_max"]
     matcher_conf = match_features.confs["superglue"]
     matcher_conf["model"]["weights"] = "indoor"
@@ -136,15 +136,17 @@ def create_sfm_from_colmap_images_and_cameras(
 
 
 if __name__ == "__main__":
-    object_name = os.environ["OBJECT"]
-    default_output_path = (
-        Path(os.environ["PIXTRACK_OUTPUTS"]) / "nerf_sfm" / object_name
-    )
+    #object_name = os.environ["OBJECT"]
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh_path", required=True, type=Path)
-    parser.add_argument("--output_path", default=default_output_path, type=Path)
-    parser.add_argument("--dataset_path", default=default_output_path, type=Path)
+    #parser.add_argument("--output_path", default=default_output_path, type=Path)
+    #parser.add_argument("--dataset_path", default=default_output_path, type=Path)
     args = parser.parse_args()
+
+    object_name = args.mesh_path.parent.name
+    dir_path = args.mesh_path.parent
+    default_output_path = dir_path / "pixtrack/pixsfm/outputs"
+    default_dataset_path = dir_path / "pixtrack/pixsfm/dataset"
 
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
@@ -160,8 +162,16 @@ if __name__ == "__main__":
     W = 1024 * 3
     H = 1024 * 3
     k1 = 0.0
-    dataset_path = args.dataset_path
-    output_path = args.output_path
+
+    #fx = 1.066778e+03 * 1
+    #fy = 1.066778e+03 * 1
+    #cx = 3.129869e+02 * 1
+    #cy = 2.413109e+02 * 1
+    #W = 640 * 1
+    #H = 480 * 1
+    #k1 = 0.0
+    dataset_path = default_dataset_path
+    output_path = default_output_path
     mesh_path = args.mesh_path
 
     # Render images from obj, get colmap images and cameras

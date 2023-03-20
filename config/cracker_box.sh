@@ -1,27 +1,8 @@
-OBJECT="003_cracker_box"
-SNAPSHOTS_ROOT="/data/pixtrack/instant-ngp/snapshots"
-PIXSFM_DATASETS="/data/pixtrack/pixel-perfect-sfm/datasets"
-PIXSFM_OUTPUTS="/data/pixtrack/pixel-perfect-sfm/outputs"
-PIXTRACK_OUTPUTS="/data/pixtrack/outputs"
-SNAPSHOT_PATH=$SNAPSHOTS_ROOT/$OBJECT
-
-export OBJECT=$OBJECT
-export SNAPSHOTS_ROOT=$SNAPSHOTS_ROOT
-export PIXSFM_DATASETS=$PIXSFM_DATASETS
-export PIXSFM_OUTPUTS=$PIXSFM_OUTPUTS
-export SNAPSHOT_PATH=$SNAPSHOT_PATH
-export PIXTRACK_OUTPUTS=$PIXTRACK_OUTPUTS
-export OBJ_AABB="[[0.302, -0.386, 0.209], [0.735, 0.108, 0.554]]"
+export OBJECT="003_cracker_box"
+export OBJECT_PATH="/data/pixtrack/objects/003_cracker_box"
+export OBJ_AABB="[[0., 0., 0.], [1., 1., 1.]]"
 export UPRIGHT_REF_IMG="mapping/0001.png"
-export OBJ_CENTER="[0.1179, 1.1538, 1.3870]"
+export OBJ_CENTER="[0.5, 0.5, 0.5]"
+export OBJECT_ID=2
 
-if [ -d $SNAPSHOT_PATH ] 
-then
-    echo "Snapshot directory exists." 
-else
-    echo "Snapshot directory does not exist, creating one."
-    mkdir -p $SNAPSHOT_PATH
-fi
-
-echo "Done setting up paths."
 

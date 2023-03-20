@@ -3,6 +3,64 @@ import os
 from pixloc.pixlib.datasets.view import read_image
 import numpy as np
 import tqdm
+import ycbvideo
+from pathlib import Path
+from pixloc.pixlib.geometry import Pose, Camera as PixCamera
+from hloc.utils.read_write_model import Camera as ColCamera
+from pixtrack.utils.pytorch3d_render_utils import create_colmap_camera
+
+class YCBVideoIterator:
+    def __iter__(self):
+        return self
+
+    def __init__(
+            self, 
+            expression='7/:20', 
+            ycb_path='/data/ycb/'):
+        self.ycb_root = Path(ycb_path)
+        loader = ycbvideo.Loader(ycb_path)
+        self.frames = loader.frames([expression])
+        self.idx = 0
+
+    def __len__(self):
+        return len(self.frames)
+
+    def __next__(self):
+        if self.idx > len(self) - 1:
+            raise StopIteration
+        query = self.frames[self.idx]
+        sequence = query.description.frame_sequence
+        frame = query.description.frame
+        path = self.ycb_root / 'data' / sequence / f'{frame}-color.png'
+        query_image = read_image(path).astype(np.float32)
+        semseg = (query.label == 2).astype(np.float32)[:, :, np.newaxis]
+        #query_image = query_image * semseg
+
+        intrinsics = query.meta['intrinsic_matrix']
+        fx = intrinsics[0, 0]
+        fy = intrinsics[1, 1]
+        cx = intrinsics[0, 2]
+        cy = intrinsics[1, 2]
+        cx, cy = 319.5000, 239.5000
+        k1 = 0.
+        H, W, _ = query.color.shape
+
+        pose = query.meta['poses'][:, :, 0]
+        R = pose[:, :3]
+        T = pose[:, 3]
+        pixpose = Pose.from_Rt(R, T)
+        camera = ColCamera(
+                id=1,
+                model="OPENCV",
+                width=W,
+                height=H,
+                params=np.array([fx, fy, cx, cy]),
+            )
+        pixcamera = PixCamera.from_colmap(camera)
+
+        self.idx += 1
+        return path, query_image, pixpose, pixcamera
+
 
 class ImagePathIterator:
     def __iter__(self):

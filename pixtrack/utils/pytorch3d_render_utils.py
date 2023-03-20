@@ -1,3 +1,4 @@
+import math
 import torch
 import trimesh
 import numpy as np
@@ -33,15 +34,20 @@ def create_look_at_camera_poses(radius, subdivisions=2):
 
 
 def create_look_at_poses_for_mesh(
-    mesh_path, subdivisions=2, device=torch.device("cuda:0")
+    fx, fy, W, H, mesh_path, subdivisions=2, device=torch.device("cuda:0")
 ):
     mesh = load_objs_as_meshes([mesh_path], device=device)
     torch.min(mesh.verts_list()[0], dim=0).values
     mesh_min = torch.min(mesh.verts_list()[0], dim=0).values
     mesh_max = torch.max(mesh.verts_list()[0], dim=0).values
     max_dist = torch.sqrt(torch.sum((mesh_max - mesh_min) ** 2))
-    max_dist = float(max_dist)
-    Rs, Ts = create_look_at_camera_poses(max_dist, subdivisions)
+    radius = float(max_dist) / 2.
+
+    angle_x = math.atan(W / (fx * 2))
+    angle_y = math.atan(H / (fy * 2))
+    d = max(radius / math.sin(angle_x), radius / math.sin(angle_y))
+
+    Rs, Ts = create_look_at_camera_poses(d, subdivisions)
     return Rs, Ts, mesh
 
 
@@ -51,7 +57,7 @@ def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device="cuda:0"):
     assert fx == fy
     focal_length = fx
     principal_point = (cx, cy)
-    image_size = (W, H)
+    image_size = (H, W)
     cameras = PerspectiveCameras(
         focal_length=focal_length,
         principal_point=(principal_point,),
