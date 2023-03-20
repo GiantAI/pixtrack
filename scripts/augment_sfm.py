@@ -27,7 +27,7 @@ def main(output):
 
     # Get image dict
     print('Adding rotation augmentation')
-    image_dict = add_rotation_augmentation_to_features_and_matches(image_list, images, features, matches)
+    image_dict = add_rotation_augmentation_to_features_and_matches(image_list, images, features, matches, save_images=True)
 
     # Augment images and 3d points
     print('Creating new sfm binaries')
@@ -49,8 +49,9 @@ def main(output):
 
 if __name__ == '__main__':
     obj = Path(os.environ['OBJECT'])
-    rout = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / obj
-    aout = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / ('aug_%s' % str(obj))
+    object_path = Path(os.environ['OBJECT_PATH'])
+    rout = object_path / 'pixtrack/nerf_sfm'
+    aout = object_path / 'pixtrack/aug_nerf_sfm'
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--ref_output', type=Path, default=rout)
@@ -62,3 +63,5 @@ if __name__ == '__main__':
         shutil.copytree(args.ref_output, args.aug_output)
         print('Done: Copying reference sfm')
     main(args.aug_output)
+    with open(str(aout / '*_with_intrinsics.txt'), 'w'):
+        pass

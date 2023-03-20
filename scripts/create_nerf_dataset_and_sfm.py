@@ -81,10 +81,11 @@ def triangulate_nerf_views(ref_sfm_path, out_dir):
 
 if __name__ == '__main__':
     obj = Path(os.environ['OBJECT'])
-    out_dir = Path(os.environ['PIXTRACK_OUTPUTS']) / 'nerf_sfm' / obj
-    ref_sfm = Path(os.environ['PIXSFM_OUTPUTS']) / obj / 'ref'
-    nerf_weights = Path(os.environ['SNAPSHOT_PATH']) / 'weights.msgpack'
-    nerf_transforms = Path(os.environ['PIXSFM_DATASETS']) / obj / 'transforms.json'
+    obj_path = Path(os.environ['OBJECT_PATH'])
+    out_dir = obj_path / 'pixtrack/nerf_sfm' 
+    ref_sfm = obj_path / 'pixtrack/pixsfm/outputs/ref'
+    nerf_weights = obj_path / 'pixtrack/instant-ngp/snapshots/weights.msgpack'
+    nerf_transforms = obj_path / 'pixtrack/pixsfm/dataset/transforms.json'
     obj_aabb = os.environ['OBJ_AABB']
     obj_aabb = np.array(ast.literal_eval(obj_aabb)).copy()
 
