@@ -20,7 +20,7 @@ def load_nerf2sfm(path):
 def initialize_ingp(snapshot_path, 
         aabb, background=None):
     if background is None:
-        background = [0., 0., 0., 0.]
+        background = [255, 255, 255, 0.]
     mode = ngp.TestbedMode.Nerf
     configs_dir = os.path.join(ROOT_DIR, 'configs', 'nerf')
     scenes = scenes_nerf
