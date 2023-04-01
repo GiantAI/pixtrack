@@ -4,7 +4,7 @@ import pickle as pkl
 import numpy as np
 import argparse
 from pixtrack.utils.pose_utils import get_world_in_camera_from_pixpose, get_camera_in_world_from_pixpose, rotate_image, geodesic_distance_for_rotations
-from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose, nerf_to_sfm_pose
+from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose, nerf_to_sfm_pose, get_nerf_aabb_from_sfm, get_object_center_from_sfm
 
 import pycolmap
 import cv2
@@ -13,7 +13,7 @@ import math
 from pathlib import Path
 
 
-def get_nerf_image(testbed, nerf_pose, camera, depth=False):
+def get_nerf_image(testbed, nerf_pose, camera, depth=False, alpha_thresh=0.):
     spp = 8
     width, height = camera.size
     width = int(width)
@@ -38,6 +38,7 @@ def get_nerf_image(testbed, nerf_pose, camera, depth=False):
     if depth:
         testbed.render_mode = testbed.render_mode.Depth
     nerf_img = testbed.render(width, height, spp, True)
+    nerf_img[nerf_img[:, :, 3] < alpha_thresh] = 0.
     nerf_img = nerf_img[:, :, :3] * 255.
     nerf_img = nerf_img.astype(np.uint8)
     if depth:
@@ -77,8 +78,8 @@ def add_pose_axes(
          [0., 0., 1.]]
     K = np.array(K)
     x, y, z = 0., 0., 0.
-    s = 0.25
-    t = 5.
+    s = 0.25 * 0.1
+    t = 5. * 1.
     axes = [[x, y, z], 
             [x + s, y, z],
             [x, y, z], 
@@ -89,7 +90,7 @@ def add_pose_axes(
     axes = np.hstack((axes, np.ones((axes.shape[0],1))))
     axes += np.array(axes_center)
     pts_3d = axes @ np.linalg.inv(pose).T[:, :3]
-    result_img = draw_axes(image, pts_3d, K)
+    result_img = draw_axes(image, pts_3d, K, t=2.)
     return result_img
 
 def draw_points(image, pts_3d, K=np.eye(3), t=15, color=(255, 255, 255)):
@@ -108,7 +109,7 @@ def draw_points_with_lines(image, pts_3d, K=np.eye(3), t=15, color=(0, 50, 200))
     return image
 
 
-def add_object_center(image, camera, pose, object_center=[0.33024578, 1.79926808, 1.71986272]):
+def add_object_center(image, camera, pose, object_center=None):
     width, height = camera.size
     focal = float(camera.f[0])
 
@@ -123,7 +124,7 @@ def add_object_center(image, camera, pose, object_center=[0.33024578, 1.79926808
     object_center0 = np.hstack((object_center0, 
                       np.ones((object_center0.shape[0],1))))
     pts_3d = object_center0 @ np.linalg.inv(pose).T[:, :3]
-    result_img = draw_points(image, pts_3d, K)
+    result_img = draw_points(image, pts_3d, K, t=5)
     return result_img
 
 
@@ -198,7 +199,7 @@ def add_object_bounding_box(image, camera, pose, obj_aabb, nerf2sfm):
     return result_img
 
     
-def blend_images(query_image, nerf_image, alpha=0.5):
+def blend_images(query_image, nerf_image, alpha=0.3):
     nerf_image = cv2.cvtColor(nerf_image, cv2.COLOR_BGR2RGB)
     blend_img = query_image * (alpha) + nerf_image * (1 - alpha)
     blend_img = blend_img.astype(np.uint8)
@@ -242,6 +243,7 @@ def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--object_path', type=Path)
     parser.add_argument('--out_dir', default=Path(os.environ['PIXTRACK_OUTPUTS']) / 'IMG_4117')
     parser.add_argument('--reference_image', default=False) 
     parser.add_argument('--no_axes', action='store_true', default=False) 
@@ -249,22 +251,29 @@ if __name__ == '__main__':
     parser.add_argument('--pose_error', action='store_true', default=False)
     args = parser.parse_args()
 
-    PROJECT_ROOT = os.environ['PROJECT_ROOT']
-    obj = os.environ['OBJECT']
-    obj_path = Path(os.environ['OBJECT_PATH'])
-    obj_aabb = os.environ['OBJ_AABB']
-    obj_aabb = np.array(ast.literal_eval(obj_aabb)).copy()
+    #PROJECT_ROOT = os.environ['PROJECT_ROOT']
+    #obj = os.environ['OBJECT']
+    #obj_path = Path(os.environ['OBJECT_PATH'])
+    #obj_aabb = os.environ['OBJ_AABB']
+    #obj_aabb = np.array(ast.literal_eval(obj_aabb)).copy()
 
+    obj_path = args.object_path
     poses_path = Path(args.out_dir) / 'poses.pkl'
     sfm_dir = obj_path / 'pixtrack/aug_nerf_sfm/aug_sfm'
     nerf_path = obj_path / 'pixtrack/instant-ngp/snapshots/weights.msgpack'
     nerf2sfm_path = obj_path / 'pixtrack/pixsfm/dataset/nerf2sfm.pkl'
     sfm_images_dir = obj_path / 'pixtrack/aug_nerf_sfm'
 
+    obj_aabb = np.array(get_nerf_aabb_from_sfm(sfm_dir, nerf2sfm_path))
+    object_center = get_object_center_from_sfm(sfm_dir)
+
+    #object_center = (obj_aabb[0] + obj_aabb[1]) / 2.
+    #object_center = object_center.tolist() + [0]
+
     pose_stream = pkl.load(open(poses_path, 'rb'))
     recon = pycolmap.Reconstruction(sfm_dir)
     nerf2sfm = load_nerf2sfm(nerf2sfm_path)
-    testbed = initialize_ingp(str(nerf_path))
+    testbed = initialize_ingp(str(nerf_path), obj_aabb)
 
     for name_q in tqdm.tqdm(pose_stream):
         path_q = pose_stream[name_q]['query_path']
@@ -276,7 +285,7 @@ if __name__ == '__main__':
             wIc_pix = pose_stream[name_q]['T_refined']
             cIw_sfm = get_camera_in_world_from_pixpose(wIc_pix)
             nerf_pose = sfm_to_nerf_pose(nerf2sfm, cIw_sfm)
-            nerf_img = get_nerf_image(testbed, nerf_pose, camera)
+            nerf_img = get_nerf_image(testbed, nerf_pose, camera, alpha_thresh=0.)
         else:
             nerf_img = (np.ones(query_img.shape) * 255).astype(np.uint8)
         p = cIw_sfm.copy()
@@ -290,20 +299,18 @@ if __name__ == '__main__':
             tracked_roll = pose_stream[name_q]['tracked_roll']
             tracked_center = pose_stream[name_q]['tracked_center']
             result_img = add_normalized_query_image(result_img, path_q, tracked_roll, tracked_center)
-        object_center = ast.literal_eval(os.environ['OBJ_CENTER']) + [0]
+        #object_center = ast.literal_eval(os.environ['OBJ_CENTER']) + [0]
         base_result_image = result_img.copy()
         if not args.no_axes:
-            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
+            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center.tolist() + [0])
         if not args.obj_center:
-            result_img = add_object_center(result_img, camera, cIw_sfm)
+            result_img = add_object_center(result_img, camera, cIw_sfm, object_center)
 
         result_name = 'result_%s' % os.path.basename(path_q)
         pose_axis_dir = os.path.join(args.out_dir, "results")
         if(not os.path.exists(pose_axis_dir)):
             os.mkdir(pose_axis_dir)
         result_path = os.path.join(pose_axis_dir, result_name)
-        if not args.no_axes:
-            result_img = add_pose_axes(result_img, camera, cIw_sfm, object_center)
 
         if args.pose_error and 'T_refined' in pose_stream[name_q]:
             pr_R, pr_T = pose_stream[name_q]['T_refined'].numpy()

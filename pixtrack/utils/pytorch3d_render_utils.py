@@ -14,6 +14,7 @@ from pytorch3d.renderer import (
     MeshRenderer,
     MeshRasterizer,
     SoftPhongShader,
+    BlendParams,
 )
 
 
@@ -79,9 +80,11 @@ def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device="cuda:0"):
     lights = AmbientLights(device=device)
 
     # Create renderer
+    blend_params = BlendParams(sigma=1e-4, gamma=1e-4, background_color=(0.0, 0.0, 0.0))
     renderer = MeshRenderer(
         rasterizer=MeshRasterizer(cameras=cameras, raster_settings=raster_settings),
-        shader=SoftPhongShader(device=device, cameras=cameras, lights=lights),
+        shader=SoftPhongShader(device=device, cameras=cameras, lights=lights, blend_params=blend_params),
+
     )
 
     # Render image

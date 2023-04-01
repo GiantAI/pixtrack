@@ -215,7 +215,7 @@ def augment_rotation(model, image, angle, cameras, new_name=None, new_idx=None):
     return aug_img
 
 def augment_images_and_points3D(outputs, image_dict):
-    sfm_dir = outputs / 'sfm'
+    sfm_dir = outputs / 'ref'
     aug_sfm_dir = outputs / 'aug_sfm'
     aug_imgs = aug_sfm_dir / 'images.bin'
     aug_pts3d = aug_sfm_dir / 'points3D.bin'

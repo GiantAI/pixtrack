@@ -136,11 +136,8 @@ def create_sfm_from_colmap_images_and_cameras(
 
 
 if __name__ == "__main__":
-    #object_name = os.environ["OBJECT"]
     parser = argparse.ArgumentParser()
     parser.add_argument("--mesh_path", required=True, type=Path)
-    #parser.add_argument("--output_path", default=default_output_path, type=Path)
-    #parser.add_argument("--dataset_path", default=default_output_path, type=Path)
     args = parser.parse_args()
 
     object_name = args.mesh_path.parent.name

@@ -11,7 +11,7 @@ import cv2
 
 from hloc import extract_features, match_features, reconstruction, visualization, pairs_from_exhaustive, triangulation
 
-from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
+from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose, get_nerf_aabb_from_sfm
 
 
 def create_features_matches(images, outputs):
@@ -80,29 +80,33 @@ def triangulate_nerf_views(ref_sfm_path, out_dir):
 
 
 if __name__ == '__main__':
-    obj = Path(os.environ['OBJECT'])
-    obj_path = Path(os.environ['OBJECT_PATH'])
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--object_path', type=Path)
+    #parser.add_argument('--out_dir', default=out_dir)
+    #parser.add_argument('--ref_sfm', default=ref_sfm)
+    #parser.add_argument('--nerf_weights', default=nerf_weights)
+    #parser.add_argument('--nerf_transforms', default=nerf_transforms)
+    args = parser.parse_args()
+
+    obj_path = args.object_path
     out_dir = obj_path / 'pixtrack/nerf_sfm' 
     ref_sfm = obj_path / 'pixtrack/pixsfm/outputs/ref'
     nerf_weights = obj_path / 'pixtrack/instant-ngp/snapshots/weights.msgpack'
     nerf_transforms = obj_path / 'pixtrack/pixsfm/dataset/transforms.json'
     obj_aabb = os.environ['OBJ_AABB']
+    nerf2sfm_path = obj_path / 'pixtrack/pixsfm/dataset/nerf2sfm.pkl'
     obj_aabb = np.array(ast.literal_eval(obj_aabb)).copy()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--out_dir', default=out_dir)
-    parser.add_argument('--ref_sfm', default=ref_sfm)
-    parser.add_argument('--nerf_weights', default=nerf_weights)
-    parser.add_argument('--nerf_transforms', default=nerf_transforms)
-    args = parser.parse_args()
-
-    nerf_im_dir = args.out_dir / 'mapping'
+    nerf_im_dir = out_dir / 'mapping'
     if not os.path.isdir(nerf_im_dir):
         os.makedirs(nerf_im_dir)
-    render_nerf_views(str(args.nerf_weights), 
-                      str(args.nerf_transforms), 
+
+    obj_aabb = get_nerf_aabb_from_sfm(ref_sfm, nerf2sfm_path)
+    render_nerf_views(str(nerf_weights), 
+                      str(nerf_transforms), 
                       str(nerf_im_dir),
                       obj_aabb,)
-    triangulate_nerf_views(str(args.ref_sfm), 
-                           str(args.out_dir))
+    triangulate_nerf_views(str(ref_sfm), 
+                           str(out_dir))
 

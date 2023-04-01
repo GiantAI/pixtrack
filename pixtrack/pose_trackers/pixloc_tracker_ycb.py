@@ -57,6 +57,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
             },
         }
 
+        self.object_path = object_path
         self.debug = debug
         self.ycb_root = Path("/data/ycb/")
         paths = default_paths.add_prefixes(
@@ -299,7 +300,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.pbar.set_description(message)
 
     def get_query_frame_iterator(self, path, max_frames):
-        iterator = YCBVideoIterator(expression=path)
+        iterator = YCBVideoIterator(object_path=self.object_path, expression=path)
         return iterator
 
     def save_poses(self):
@@ -310,13 +311,14 @@ class PixLocPoseTrackerYCB(PoseTracker):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--object_path", type=Path)
     parser.add_argument("--query", default="7:10")
     parser.add_argument("--out_dir", default="ycb_7")
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--debug", action="store_true", default=False)
     args = parser.parse_args()
-    obj = os.environ["OBJECT"]
-    obj_path = Path(os.environ["OBJECT_PATH"])
+    #obj_path = Path(os.environ["OBJECT_PATH"])
+    obj_path = args.object_path
     data_path = obj_path / "pixtrack/pixsfm/dataset"
     eval_path = Path(args.out_dir)
     loc_path = obj_path / "pixtrack/aug_nerf_sfm"
@@ -326,7 +328,7 @@ if __name__ == "__main__":
         data_path=str(data_path),
         eval_path=str(eval_path),
         loc_path=str(loc_path),
-        object_path=str(obj_path),
+        object_path=obj_path,
         debug=args.debug,
     )
     tracker.run(args.query, max_frames=args.frames)

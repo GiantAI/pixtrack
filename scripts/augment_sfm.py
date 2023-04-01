@@ -14,7 +14,7 @@ from pixtrack.utils.hloc_utils import add_rotation_augmentation_to_features_and_
 
 def main(output):
     sfm_dir = output / 'aug_sfm'
-    reference_model = output / 'sfm'
+    reference_model = output / 'ref'
     images = output
     features = output / 'features.h5'
     matches = output / 'matches.h5'
@@ -27,7 +27,7 @@ def main(output):
 
     # Get image dict
     print('Adding rotation augmentation')
-    image_dict = add_rotation_augmentation_to_features_and_matches(image_list, images, features, matches, save_images=True)
+    image_dict = add_rotation_augmentation_to_features_and_matches(image_list, images, features, matches, save_images=False)
 
     # Augment images and 3d points
     print('Creating new sfm binaries')
@@ -48,20 +48,20 @@ def main(output):
     print('Done!')
 
 if __name__ == '__main__':
-    obj = Path(os.environ['OBJECT'])
-    object_path = Path(os.environ['OBJECT_PATH'])
-    rout = object_path / 'pixtrack/nerf_sfm'
-    aout = object_path / 'pixtrack/aug_nerf_sfm'
-
     parser = argparse.ArgumentParser()
-    parser.add_argument('--ref_output', type=Path, default=rout)
-    parser.add_argument('--aug_output', type=Path, default=aout)
+    parser.add_argument('--object_path', type=Path)
     args = parser.parse_args()
+    object_path = args.object_path
+    ref_output = object_path / 'pixtrack/pixsfm/outputs'
+    img_output = object_path / 'pixtrack/pixsfm/dataset/mapping'
+    aug_output = object_path / 'pixtrack/aug_nerf_sfm'
 
-    if not os.path.isdir(aout):
+
+    if not os.path.isdir(aug_output):
         print('Copying reference sfm')
-        shutil.copytree(args.ref_output, args.aug_output)
+        shutil.copytree(ref_output, aug_output)
+        shutil.copytree(img_output, aug_output / 'mapping')
         print('Done: Copying reference sfm')
-    main(args.aug_output)
-    with open(str(aout / '*_with_intrinsics.txt'), 'w'):
+    main(aug_output)
+    with open(str(aug_output / '*_with_intrinsics.txt'), 'w'):
         pass

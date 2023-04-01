@@ -15,11 +15,20 @@ class YCBVideoIterator:
 
     def __init__(
             self, 
+            object_path,
             expression='7/:20', 
             ycb_path='/data/ycb/'):
         self.ycb_root = Path(ycb_path)
         loader = ycbvideo.Loader(ycb_path)
         self.frames = loader.frames([expression])
+        class_map = {
+                '003_cracker_box': 2, 
+                '004_sugar_box': 3,
+                '006_mustard_bottle': 5,
+                '021_bleach_cleanser': 12,
+                '035_power_drill': 15,
+                }
+        self.object_id = class_map[object_path.name]
         self.idx = 0
 
     def __len__(self):
@@ -33,7 +42,7 @@ class YCBVideoIterator:
         frame = query.description.frame
         path = self.ycb_root / 'data' / sequence / f'{frame}-color.png'
         query_image = read_image(path).astype(np.float32)
-        semseg = (query.label == 2).astype(np.float32)[:, :, np.newaxis]
+        semseg = (query.label == self.object_id).astype(np.float32)[:, :, np.newaxis]
         #query_image = query_image * semseg
 
         intrinsics = query.meta['intrinsic_matrix']
@@ -45,7 +54,9 @@ class YCBVideoIterator:
         k1 = 0.
         H, W, _ = query.color.shape
 
-        pose = query.meta['poses'][:, :, 0]
+        pose_idx = int(np.argwhere(query.meta['cls_indexes'].squeeze() == self.object_id).squeeze())
+
+        pose = query.meta['poses'][:, :, pose_idx]
         R = pose[:, :3]
         T = pose[:, 3]
         pixpose = Pose.from_Rt(R, T)
