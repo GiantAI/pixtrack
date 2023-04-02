@@ -80,7 +80,8 @@ if __name__ == "__main__":
     if not os.path.isdir(aug_output):
         print("Copying reference sfm")
         shutil.copytree(ref_output, aug_output)
-        shutil.copytree(img_output, aug_output / "mapping")
+        if not os.path.isdir(str(aug_output / "mapping")):
+            shutil.copytree(img_output, aug_output / "mapping")
         print("Done: Copying reference sfm")
     main(aug_output)
     with open(str(aug_output / "*_with_intrinsics.txt"), "w"):

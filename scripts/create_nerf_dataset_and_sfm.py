@@ -31,7 +31,7 @@ def create_features_matches(images, outputs):
     outputs = Path(outputs)
     sfm_pairs = outputs / "pairs-sfm.txt"
     loc_pairs = outputs / "pairs-loc.txt"
-    sfm_dir = outputs / "sfm"
+    sfm_dir = outputs / "ref"
     features = outputs / "features.h5"
     matches = outputs / "matches.h5"
 
@@ -82,7 +82,7 @@ def triangulate_nerf_views(ref_sfm_path, out_dir):
     outputs = Path(out_dir)
     sfm_pairs = outputs / "pairs-sfm.txt"
     loc_pairs = outputs / "pairs-loc.txt"
-    sfm_dir = outputs / "sfm"
+    sfm_dir = outputs / "ref"
     features = outputs / "features.h5"
     matches = outputs / "matches.h5"
 
@@ -123,7 +123,6 @@ if __name__ == "__main__":
     if not os.path.isdir(nerf_im_dir):
         os.makedirs(nerf_im_dir)
 
-    import pdb; pdb.set_trace()
     if args.object_aabb != "":
         obj_aabb = np.array(ast.literal_eval(args.object_aabb)).copy()
     else:
