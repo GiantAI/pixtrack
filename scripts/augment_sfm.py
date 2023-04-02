@@ -67,9 +67,13 @@ def main(output):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--object_path", type=Path)
+    parser.add_argument("--use_nerf_sfm", action="store_true", default=False)
     args = parser.parse_args()
     object_path = args.object_path
-    ref_output = object_path / "pixtrack/pixsfm/outputs"
+    if args.use_nerf_sfm:
+        ref_output = object_path / "pixtrack/nerf_sfm"
+    else:
+        ref_output = object_path / "pixtrack/pixsfm/outputs"
     img_output = object_path / "pixtrack/pixsfm/dataset/mapping"
     aug_output = object_path / "pixtrack/aug_nerf_sfm"
 

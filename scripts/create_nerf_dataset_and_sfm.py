@@ -123,6 +123,7 @@ if __name__ == "__main__":
     if not os.path.isdir(nerf_im_dir):
         os.makedirs(nerf_im_dir)
 
+    import pdb; pdb.set_trace()
     if args.object_aabb != "":
         obj_aabb = np.array(ast.literal_eval(args.object_aabb)).copy()
     else:
