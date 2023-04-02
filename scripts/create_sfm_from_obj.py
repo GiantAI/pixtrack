@@ -32,7 +32,6 @@ def render_dataset_and_get_colmap_images_and_cameras(
     mesh_path, dataset_path, fx, fy, cx, cy, W, H, k1, device, subdivisions=2
 ):
     Rs, Ts, mesh = create_look_at_poses_for_mesh(
-
         fx, fy, W, H, mesh_path, subdivisions=subdivisions, device=device
     )
     dataset_path.mkdir(parents=True, exist_ok=True)
@@ -160,13 +159,13 @@ if __name__ == "__main__":
     H = 1024 * 3
     k1 = 0.0
 
-    #fx = 1.066778e+03 * 1
-    #fy = 1.066778e+03 * 1
-    #cx = 3.129869e+02 * 1
-    #cy = 2.413109e+02 * 1
-    #W = 640 * 1
-    #H = 480 * 1
-    #k1 = 0.0
+    # fx = 1.066778e+03 * 1
+    # fy = 1.066778e+03 * 1
+    # cx = 3.129869e+02 * 1
+    # cy = 2.413109e+02 * 1
+    # W = 640 * 1
+    # H = 480 * 1
+    # k1 = 0.0
     dataset_path = default_dataset_path
     output_path = default_output_path
     mesh_path = args.mesh_path
