@@ -42,7 +42,7 @@ def create_look_at_poses_for_mesh(
     mesh_min = torch.min(mesh.verts_list()[0], dim=0).values
     mesh_max = torch.max(mesh.verts_list()[0], dim=0).values
     max_dist = torch.sqrt(torch.sum((mesh_max - mesh_min) ** 2))
-    radius = float(max_dist) / 2.
+    radius = float(max_dist) / 2.0
 
     angle_x = math.atan(W / (fx * 2))
     angle_y = math.atan(H / (fy * 2))
@@ -53,7 +53,6 @@ def create_look_at_poses_for_mesh(
 
 
 def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device="cuda:0"):
-
     # Create cameras
     assert fx == fy
     focal_length = fx
@@ -83,8 +82,9 @@ def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device="cuda:0"):
     blend_params = BlendParams(sigma=1e-4, gamma=1e-4, background_color=(0.0, 0.0, 0.0))
     renderer = MeshRenderer(
         rasterizer=MeshRasterizer(cameras=cameras, raster_settings=raster_settings),
-        shader=SoftPhongShader(device=device, cameras=cameras, lights=lights, blend_params=blend_params),
-
+        shader=SoftPhongShader(
+            device=device, cameras=cameras, lights=lights, blend_params=blend_params
+        ),
     )
 
     # Render image
@@ -94,7 +94,6 @@ def render_image(mesh, fx, fy, cx, cy, W, H, R, T, device="cuda:0"):
 
 
 def create_colmap_image_from_pytorch3d_RT(R, T, image_name, image_id, camera_id):
-
     # Flip x, y axes
     flip = np.eye(3)
     flip[0, 0] = -1.0

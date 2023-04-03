@@ -1,6 +1,7 @@
 import tqdm
 import numpy as np
 
+
 class PoseTracker:
     def __init__(self):
         return
@@ -34,4 +35,3 @@ class PoseTracker:
         for frame in self.pbar:
             self.run_single_frame(frame)
         return
-

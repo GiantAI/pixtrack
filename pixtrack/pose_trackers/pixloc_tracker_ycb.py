@@ -16,7 +16,12 @@ from pixtrack.localization.pixloc_pose_refiners import PoseTrackerLocalizer
 from pixtrack.localization.tracker import DebugTracker
 from pixtrack.utils.io import ImageIterator, YCBVideoIterator
 from pixtrack.utils.hloc_utils import extract_covisibility
-from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
+from pixtrack.utils.ingp_utils import (
+    load_nerf2sfm,
+    initialize_ingp,
+    sfm_to_nerf_pose,
+    get_nerf_aabb_from_sfm,
+)
 from pixtrack.visualization.run_vis_on_poses import get_nerf_image
 from scipy.spatial.transform import Rotation as R
 
@@ -49,7 +54,9 @@ class PixLocPoseTrackerYCB(PoseTracker):
             },
             "refinement": {
                 "num_dbs": 1,
-                "multiscale": [1,],
+                "multiscale": [
+                    1,
+                ],
                 "point_selection": "all",
                 "normalize_descriptors": True,
                 "average_observations": False,
@@ -76,18 +83,14 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.pose_tracker_history = {}
         self.cold_start = True
         self.pose = None
-        # upright_ref_img = 'mapping/240_0111.png' #os.environ['UPRIGHT_REF_IMG']
-        # upright_ref_img = 'mapping/180_0106.png' #os.environ['UPRIGHT_REF_IMG']
-        # upright_ref_img = 'mapping/0001.png' #os.environ['UPRIGHT_REF_IMG']
-
-        # self.reference_ids = [self.localizer.model3d.name2id[upright_ref_img]]
         self.reference_ids = None
         nerf_path = Path(object_path) / "pixtrack/instant-ngp/snapshots/weights.msgpack"
         nerf2sfm_path = Path(data_path) / "nerf2sfm.pkl"
         self.reference_scale = 0.3
         self.localizer.refiner.reference_scale = self.reference_scale
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
-        self.testbed = initialize_ingp(str(nerf_path))
+        aabb = get_nerf_aabb_from_sfm(os.path.join(loc_path, "aug_sfm"), nerf2sfm_path)
+        self.testbed = initialize_ingp(str(nerf_path), aabb)
         self.testbed.compute_and_save_marching_cubes_mesh("test.obj", [128, 128, 128])
         self.dynamic_id = None
         self.hits = 0
@@ -100,7 +103,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         gt_camera = self.gt_camera
         if self.cold_start:
             self.camera = gt_camera  # self.get_query_camera(query_path)
-            #self.camera = self.get_query_camera(query_path)
+            # self.camera = self.get_query_camera(query_path)
             self.cold_start = False
         # ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
         # rotation = ref_img.qvec2rotmat()
@@ -317,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--debug", action="store_true", default=False)
     args = parser.parse_args()
-    #obj_path = Path(os.environ["OBJECT_PATH"])
+    # obj_path = Path(os.environ["OBJECT_PATH"])
     obj_path = args.object_path
     data_path = obj_path / "pixtrack/pixsfm/dataset"
     eval_path = Path(args.out_dir)
