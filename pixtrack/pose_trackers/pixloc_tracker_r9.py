@@ -2,6 +2,7 @@ import os
 import numpy as np
 import torch
 from pathlib import Path
+import ast
 
 from pixloc.utils.colmap import Camera as ColCamera
 from pixloc.pixlib.geometry import Camera as PixCamera, Pose
@@ -16,7 +17,7 @@ from pixtrack.localization.pixloc_pose_refiners import PoseTrackerLocalizer
 from pixtrack.localization.tracker import DebugTracker
 from pixtrack.utils.io import ImageIterator
 from pixtrack.utils.hloc_utils import extract_covisibility
-from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose
+from pixtrack.utils.ingp_utils import load_nerf2sfm, initialize_ingp, sfm_to_nerf_pose, get_nerf_aabb_from_sfm
 from pixtrack.visualization.run_vis_on_poses import get_nerf_image
 from scipy.spatial.transform import Rotation as R
 
@@ -29,7 +30,7 @@ import argparse
 
 
 class PixLocPoseTrackerR9(PoseTracker):
-    def __init__(self, data_path, loc_path, eval_path, debug=False):
+    def __init__(self, object_path, data_path, loc_path, eval_path, debug=False):
         default_paths = Paths(
             query_images="query/",
             reference_images=loc_path,
@@ -75,14 +76,14 @@ class PixLocPoseTrackerR9(PoseTracker):
         self.pose = None
         upright_ref_img = os.environ["UPRIGHT_REF_IMG"]
         self.reference_ids = [self.localizer.model3d.name2id[upright_ref_img]]
-        nerf_path = Path(os.environ["SNAPSHOT_PATH"]) / "weights.msgpack"
-        nerf2sfm_path = (
-            Path(os.environ["PIXSFM_DATASETS"]) / os.environ["OBJECT"] / "nerf2sfm.pkl"
-        )
+        nerf_path = Path(object_path) / "pixtrack/instant-ngp/snapshots/weights.msgpack"
+        nerf2sfm_path = Path(data_path) / "nerf2sfm.pkl"
         self.reference_scale = 0.5
         self.localizer.refiner.reference_scale = self.reference_scale
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
-        self.testbed = initialize_ingp(str(nerf_path))
+        #aabb = get_nerf_aabb_from_sfm(os.path.join(loc_path, "aug_sfm"), nerf2sfm_path)
+        aabb = ast.literal_eval(os.environ['OBJ_AABB'])
+        self.testbed = initialize_ingp(str(nerf_path), aabb)
         self.dynamic_id = None
         self.hits = 0
         self.misses = 0
@@ -255,18 +256,23 @@ class PixLocPoseTrackerR9(PoseTracker):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--query", default="IMG_4117")
-    parser.add_argument("--out_dir", default="IMG_4117")
+    parser.add_argument("--object_path", type=Path)
+    parser.add_argument("--query", type=Path)
+    parser.add_argument("--out_dir", type=Path)
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--debug", action="store_true", default=False)
     args = parser.parse_args()
-    obj = os.environ["OBJECT"]
-    data_path = Path(os.environ["PIXSFM_DATASETS"]) / obj
-    eval_path = Path(args.out_dir)
-    loc_path = Path(os.environ["PIXTRACK_OUTPUTS"]) / "nerf_sfm" / ("aug_%s" % obj)
+    #obj = os.environ["OBJECT"]
+    #data_path = Path(os.environ["PIXSFM_DATASETS"]) / obj
+    #eval_path = Path(args.out_dir)
+    #loc_path = Path(os.environ["PIXTRACK_OUTPUTS"]) / "nerf_sfm" / ("aug_%s" % obj)
+    data_path = args.object_path / 'pixtrack/pixsfm/dataset'
+    eval_path = args.out_dir
+    loc_path = args.object_path / 'pixtrack/aug_nerf_sfm'
     if not os.path.isdir(eval_path):
         os.makedirs(eval_path)
     tracker = PixLocPoseTrackerR9(
+        object_path=str(args.object_path),
         data_path=str(data_path),
         eval_path=str(eval_path),
         loc_path=str(loc_path),

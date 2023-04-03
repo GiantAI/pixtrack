@@ -256,9 +256,7 @@ def add_normalized_query_image(base_image, path, angle, center=None, s=0.25):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--object_path", type=Path)
-    parser.add_argument(
-        "--out_dir", default=Path(os.environ["PIXTRACK_OUTPUTS"]) / "IMG_4117"
-    )
+    parser.add_argument("--out_dir", type=Path)
     parser.add_argument("--reference_image", default=False)
     parser.add_argument("--no_axes", action="store_true", default=False)
     parser.add_argument("--obj_center", action="store_true", default=False)
