@@ -3,7 +3,7 @@ from pixloc.localization.tracker import BaseTracker
 
 
 class DebugTracker(BaseTracker):
-    def __init__(self, refiner, debug=False):
+    def __init__(self, refiner, debug=0):
         super().__init__(refiner)
 
         self.dense = defaultdict(dict)
@@ -16,7 +16,7 @@ class DebugTracker(BaseTracker):
         self.debug = debug
 
     def log_dense(self, **args):
-        if not self.debug:
+        if self.debug < 2:
             return
         feats = [f.cpu() for f in args["features"]]
         weights = [w.cpu()[0] for w in args["weight"]]
@@ -24,13 +24,13 @@ class DebugTracker(BaseTracker):
         self.dense[args["name"]][args["image_scale"]] = data
 
     def log_optim_done(self, **args):
-        if not self.debug:
+        if self.debug < 2:
             return
         self.p3d = args["p3d"]
         self.p3d_ids = args["p3d_ids"]
 
     def log_optim_iter(self, **args):
-        if not self.debug:
+        if self.debug < 1:
             return
         if args["i"] == 0:  # new scale or level
             self.costs.append([])

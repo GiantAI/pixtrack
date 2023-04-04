@@ -261,6 +261,7 @@ if __name__ == "__main__":
     parser.add_argument("--no_axes", action="store_true", default=False)
     parser.add_argument("--obj_center", action="store_true", default=False)
     parser.add_argument("--pose_error", action="store_true", default=False)
+    parser.add_argument("--obj_aabb", type=str, default="")
     args = parser.parse_args()
 
     # PROJECT_ROOT = os.environ['PROJECT_ROOT']
@@ -276,7 +277,10 @@ if __name__ == "__main__":
     nerf2sfm_path = obj_path / "pixtrack/pixsfm/dataset/nerf2sfm.pkl"
     sfm_images_dir = obj_path / "pixtrack/aug_nerf_sfm"
 
-    obj_aabb = np.array(get_nerf_aabb_from_sfm(sfm_dir, nerf2sfm_path))
+    if args.obj_aabb == '':
+        obj_aabb = np.array(get_nerf_aabb_from_sfm(sfm_dir, nerf2sfm_path))
+    else:
+        obj_aabb = np.array(ast.literal_eval(args.obj_aabb)).copy()
     object_center = get_object_center_from_sfm(sfm_dir)
 
     # object_center = (obj_aabb[0] + obj_aabb[1]) / 2.

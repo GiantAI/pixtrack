@@ -91,7 +91,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         aabb = get_nerf_aabb_from_sfm(os.path.join(loc_path, "aug_sfm"), nerf2sfm_path)
         self.testbed = initialize_ingp(str(nerf_path), aabb)
-        self.testbed.compute_and_save_marching_cubes_mesh("test.obj", [128, 128, 128])
+        #self.testbed.compute_and_save_marching_cubes_mesh("test.obj", [128, 128, 128])
         self.dynamic_id = None
         self.hits = 0
         self.misses = 0

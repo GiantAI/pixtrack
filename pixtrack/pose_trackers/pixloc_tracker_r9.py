@@ -30,7 +30,7 @@ import argparse
 
 
 class PixLocPoseTrackerR9(PoseTracker):
-    def __init__(self, object_path, data_path, loc_path, eval_path, debug=False):
+    def __init__(self, object_path, data_path, loc_path, eval_path, debug=0):
         default_paths = Paths(
             query_images="query/",
             reference_images=loc_path,
@@ -49,7 +49,7 @@ class PixLocPoseTrackerR9(PoseTracker):
             },
             "refinement": {
                 "num_dbs": 1,
-                "multiscale": [4, 1],
+                "multiscale": [1],
                 "point_selection": "all",
                 "normalize_descriptors": True,
                 "average_observations": False,
@@ -88,16 +88,21 @@ class PixLocPoseTrackerR9(PoseTracker):
         self.hits = 0
         self.misses = 0
         self.cache_hit = False
+        self.cost_threshold = None
+        self.relocalization_count = 0
+        self.success = True
 
     def relocalize(self, query_path):
         if self.cold_start:
             self.camera = self.get_query_camera(query_path)
             self.cold_start = False
-        ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
-        rotation = ref_img.qvec2rotmat()
-        translation = ref_img.tvec
-        pose_init = Pose.from_Rt(rotation, translation)
-        self.pose = pose_init
+        if self.pose is None:
+            ref_img = self.localizer.model3d.dbs[self.reference_ids[0]]
+            rotation = ref_img.qvec2rotmat()
+            translation = ref_img.tvec
+            pose_init = Pose.from_Rt(rotation, translation)
+            self.pose = pose_init
+        self.relocalization_count += 1
         return
 
     def get_query_camera(self, query):
@@ -199,11 +204,25 @@ class PixLocPoseTrackerR9(PoseTracker):
 
         return self.dynamic_id
 
+    def get_mask(self, pose):
+        cIw = get_camera_in_world_from_pixpose(pose)
+        nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
+        depth = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
+        kernel = np.ones((5, 5), np.uint8)
+        img_erosion = cv2.erode((depth != 0).astype(np.uint8), kernel, iterations=1)
+        img_dilation = cv2.dilate(img_erosion, kernel, iterations=5)
+        return img_dilation
+
     def refine(self, query):
         query_path, query_image = query
         if self.cold_start:
+            self.localizer.refiner.conf.multiscale = [4, 1]
             self.relocalize(query_path)
             self.cold_start = False
+        elif self.success:
+            self.localizer.refiner.conf.multiscale = [1]
+            mask = self.get_mask(self.pose)
+            query_image = query_image * mask
 
         self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
@@ -231,11 +250,22 @@ class PixLocPoseTrackerR9(PoseTracker):
             trackers[ref_id] = tracker
             avg_cost = np.mean([x[-1] for x in tracker.costs])
             costs[ref_id] = avg_cost
+        message = f'Cost: {avg_cost}, Relocalizations: {self.relocalization_count}'
+        self.pbar.set_description(message)
         best_ref_id = min(costs, key=costs.get)
         ret = rets[best_ref_id]
-        success = ret["success"]
+
+        if self.cost_threshold is None:
+            thresh = min(costs.values())
+            thresh = thresh + 0.1 * thresh
+            self.cost_threshold = thresh
+
+        success = ret["success"] and min(costs.values()) <= self.cost_threshold
         if success:
             self.pose = ret["T_refined"]
+            self.success = True
+        else:
+            self.success = False
         ret["camera"] = self.camera
         ret["reference_ids"] = self.reference_ids
         ret["query_path"] = query_path
@@ -260,7 +290,7 @@ if __name__ == "__main__":
     parser.add_argument("--query", type=Path)
     parser.add_argument("--out_dir", type=Path)
     parser.add_argument("--frames", type=int, default=None)
-    parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("--debug", type=int, default=0)
     args = parser.parse_args()
     #obj = os.environ["OBJECT"]
     #data_path = Path(os.environ["PIXSFM_DATASETS"]) / obj
