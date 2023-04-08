@@ -176,10 +176,14 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
         return nerf_img
 
-    def get_mask(self, pose):
+    def get_depth(self, pose):
         cIw = get_camera_in_world_from_pixpose(pose)
         nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
         depth = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
+        depth = depth * self.nerf2sfm['avglen'] / 3.
+        return depth
+
+    def get_mask(self, depth):
         kernel = np.ones((5, 5), np.uint8)
         img_erosion = cv2.erode((depth != 0).astype(np.uint8), kernel, iterations=1)
         img_dilation = cv2.dilate(img_erosion, kernel, iterations=5)
@@ -239,14 +243,15 @@ class PixLocPoseTrackerYCB(PoseTracker):
         return self.dynamic_id
 
     def refine(self, query):
-        query_path, query_image, gt_pose, gt_camera = query
+        query_path, query_image, query_depth, gt_pose, gt_camera = query
         self.gt_pose = gt_pose
         self.gt_camera = gt_camera
         if self.cold_start:
             self.relocalize(query_path)
             self.cold_start = False
 
-        mask = self.get_mask(self.pose)
+        reference_depth = self.get_depth(self.pose)
+        mask = self.get_mask(reference_depth)
         query_image = query_image * mask
 
         self.dynamic_id = self.get_dynamic_id(self.pose)
