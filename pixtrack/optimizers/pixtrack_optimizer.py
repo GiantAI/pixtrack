@@ -5,7 +5,8 @@ from pixloc.pixlib.models.learned_optimizer import LearnedOptimizer
 from pixloc.pixlib.geometry.costs import DirectAbsoluteCost
 from pixloc.pixlib.geometry import Camera, Pose
 from pixloc.pixlib.geometry.optimization import optimizer_step
-
+import logging
+logger = logging.getLogger(__name__)
 
 class DirectAbsoluteCostDepth(DirectAbsoluteCost):
     def residuals(
@@ -85,6 +86,13 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
 
         J_fd = torch.cat((J, J_d), dim=1)
         res_fd = torch.cat((res, res_depth), dim=1)
+        if False:
+            J = J_fd
+            res = res_fd
+        if True:
+            J = J_d
+            res = res_depth
+
         return res, valid, weight, F_p2D, J
 
 class PixTrackOptimizer(LearnedOptimizer):

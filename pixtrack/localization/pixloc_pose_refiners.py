@@ -360,7 +360,7 @@ class PoseTrackerRefiner(BaseRefiner):
     def augment_depth(self, features, depth, scale):
         for level in range(len(features)):
             _, H, W = features[level].shape
-            depth_scaled = F.interpolate(depth.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0)
+            depth_scaled = F.interpolate(depth.unsqueeze(0).unsqueeze(0), (H, W), mode='nearest').squeeze(0)
             features[level] = torch.cat((features[level], depth_scaled), dim=0)
         return features
 

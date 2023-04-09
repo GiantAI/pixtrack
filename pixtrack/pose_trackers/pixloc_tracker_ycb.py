@@ -241,7 +241,6 @@ class PixLocPoseTrackerYCB(PoseTracker):
 
     def refine(self, query):
         query_path, query_image, query_depth, gt_pose, gt_camera = query
-        query_depth = torch.tensor(query_depth).cuda()
         self.gt_pose = gt_pose
         self.gt_camera = gt_camera
         if self.cold_start:
@@ -251,7 +250,8 @@ class PixLocPoseTrackerYCB(PoseTracker):
         reference_depth = self.get_depth(self.pose)
         mask = self.get_mask(reference_depth)
         query_image = query_image * mask[:, :, np.newaxis]
-
+        query_depth = query_depth * mask
+        query_depth = torch.tensor(query_depth).cuda()
         self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
