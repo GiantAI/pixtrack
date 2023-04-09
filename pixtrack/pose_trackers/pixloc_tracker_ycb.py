@@ -248,7 +248,6 @@ class PixLocPoseTrackerYCB(PoseTracker):
             self.relocalize(query_path)
             self.cold_start = False
 
-        import pdb; pdb.set_trace()
         reference_depth = self.get_depth(self.pose)
         mask = self.get_mask(reference_depth)
         query_image = query_image * mask[:, :, np.newaxis]

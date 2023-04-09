@@ -4,6 +4,7 @@ from torch import Tensor
 from pixloc.pixlib.models.learned_optimizer import LearnedOptimizer
 from pixloc.pixlib.geometry.costs import DirectAbsoluteCost
 from pixloc.pixlib.geometry import Camera, Pose
+from pixloc.pixlib.geometry.optimization import optimizer_step
 
 
 class DirectAbsoluteCostDepth(DirectAbsoluteCost):

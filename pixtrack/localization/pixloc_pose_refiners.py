@@ -265,13 +265,9 @@ class PoseTrackerRefiner(BaseRefiner):
             #if depth_query is not None:
             #    features_query = self.augment_depth(features_query, depth_query, scales_query)
 
-            try:
-                ret = self.refine_pose_using_features(
-                    features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query,
-                )
-            except:
-                ret = {}
-                ret["success"] = False
+            ret = self.refine_pose_using_features(
+                features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query,
+            )
             if not ret["success"]:
                 logger.info(f"Optimization failed for query {qname}")
                 break
@@ -339,7 +335,7 @@ class PoseTrackerRefiner(BaseRefiner):
             depth_query_scaled = F.interpolate(depth_query.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0)
             T_opt, fail = opt.run(p3d, F_ref, F_q, T_i.to(F_q),
                                   qcamera_feat.to(F_q),
-                                  W_ref_query=W_ref_query, 
+                                  W_ref_query=W_ref_query,
                                   D_query=depth_query_scaled)
 
             self.log_optim(i=idx, T_opt=T_opt, fail=fail, level=level,
@@ -361,9 +357,7 @@ class PoseTrackerRefiner(BaseRefiner):
         }
 
 
-
     def augment_depth(self, features, depth, scale):
-        import pdb; pdb.set_trace()
         for level in range(len(features)):
             _, H, W = features[level].shape
             depth_scaled = F.interpolate(depth.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0)
