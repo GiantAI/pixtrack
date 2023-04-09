@@ -228,9 +228,6 @@ class PixLocPoseTrackerYCB(PoseTracker):
             self.hits += 1
             self.cache_hit = True
         else:
-            # print('New reference frame! Distance: %f, Threshold: %f' % (gdists[dids[0]], self.THRESH))
-            # print(gdists)
-            # print(self.localizer.refiner.features_dicts.keys())
             self.cache_hit = False
             self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
             features_dicts[self.dynamic_id] = {}
@@ -244,15 +241,17 @@ class PixLocPoseTrackerYCB(PoseTracker):
 
     def refine(self, query):
         query_path, query_image, query_depth, gt_pose, gt_camera = query
+        query_depth = torch.tensor(query_depth).cuda()
         self.gt_pose = gt_pose
         self.gt_camera = gt_camera
         if self.cold_start:
             self.relocalize(query_path)
             self.cold_start = False
 
+        import pdb; pdb.set_trace()
         reference_depth = self.get_depth(self.pose)
         mask = self.get_mask(reference_depth)
-        query_image = query_image * mask
+        query_image = query_image * mask[:, :, np.newaxis]
 
         self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
@@ -272,6 +271,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
                 pose_init,
                 [ref_id],
                 image_query=query_image,
+                depth_query=query_depth,
                 pose=self.pose,
                 reference_images_raw=None,
                 dynamic_id=self.dynamic_id,

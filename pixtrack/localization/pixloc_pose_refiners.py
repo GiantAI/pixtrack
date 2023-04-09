@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from typing import Optional, Dict, Tuple, Union, List
 from omegaconf import DictConfig, OmegaConf as oc
 from pathlib import Path
@@ -99,6 +100,7 @@ class PoseTrackerLocalizer(Localizer):
         pose_init: Pose,
         reference_images: int,
         image_query: np.ndarray = None,
+        depth_query: np.ndarray = None,
         pose: Pose = None,
         reference_images_raw: List[np.ndarray] = None,
         dynamic_id: int = None,
@@ -111,6 +113,7 @@ class PoseTrackerLocalizer(Localizer):
             reference_images,
             loc=loc,
             image_query=image_query,
+            depth_query=depth_query,
             pose=pose,
             reference_images=reference_images_raw,
             dynamic_id=dynamic_id,
@@ -141,6 +144,7 @@ class PoseTrackerRefiner(BaseRefiner):
         dbids: List[int],
         loc: Optional[Dict] = None,
         image_query: np.ndarray = None,
+        depth_query: np.ndarray = None,
         pose: Pose = None,
         reference_images: List[np.ndarray] = None,
         dynamic_id: int = None,
@@ -164,6 +168,7 @@ class PoseTrackerRefiner(BaseRefiner):
             p3did_to_dbids,
             self.conf.multiscale,
             image_query,
+            depth_query,
             pose,
             reference_images,
             dynamic_id,
@@ -205,6 +210,7 @@ class PoseTrackerRefiner(BaseRefiner):
         p3did_to_dbids: Dict[int, List],
         multiscales: Optional[List[int]] = None,
         image_query: np.ndarray = None,
+        depth_query: np.ndarray = None,
         pose: Pose = None,
         reference_images: List[np.ndarray] = None,
         dynamic_id: int = None,
@@ -256,9 +262,12 @@ class PoseTrackerRefiner(BaseRefiner):
                 image_query, qname, image_scale
             )
 
+            #if depth_query is not None:
+            #    features_query = self.augment_depth(features_query, depth_query, scales_query)
+
             try:
                 ret = self.refine_pose_using_features(
-                    features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids
+                    features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query,
                 )
             except:
                 ret = {}
@@ -269,6 +278,97 @@ class PoseTrackerRefiner(BaseRefiner):
             else:
                 T_init = ret["T_refined"]
         return ret
+
+    def refine_pose_using_features(self,
+                                   features_query: List[torch.tensor],
+                                   scales_query: List[float],
+                                   qcamera: Camera,
+                                   T_init: Pose,
+                                   features_p3d: List[List[torch.Tensor]],
+                                   p3dids: List[int],
+				   depth_query: torch.tensor) -> Dict:
+        """Perform the pose refinement using given dense query feature-map.
+        """
+        # decompose descriptors and uncertainities, normalize descriptors
+        weights_ref = []
+        features_ref = []
+        for level in range(len(features_p3d[0])):
+            feats = torch.stack([feat[level] for feat in features_p3d], dim=0)
+            feats = feats.to(self.device)
+            if self.conf.compute_uncertainty:
+                feats, weight = feats[:, :-1], feats[:, -1:]
+                weights_ref.append(weight)
+            if self.conf.normalize_descriptors:
+                feats = torch.nn.functional.normalize(feats, dim=1)
+            assert not feats.requires_grad
+            features_ref.append(feats)
+
+        # query dense features decomposition and normalization
+        features_query = [feat.to(self.device) for feat in features_query]
+        if self.conf.compute_uncertainty:
+            weights_query = [feat[-1:] for feat in features_query]
+            features_query = [feat[:-1] for feat in features_query]
+        if self.conf.normalize_descriptors:
+            features_query = [torch.nn.functional.normalize(feat, dim=0)
+                              for feat in features_query]
+
+        p3d = np.stack([self.model3d.points3D[p3did].xyz for p3did in p3dids])
+
+        T_i = T_init
+        ret = {'T_init': T_init}
+        # We will start with the low res feature map first
+        for idx, level in enumerate(reversed(range(len(features_query)))):
+            F_q, F_ref = features_query[level], features_ref[level]
+            qcamera_feat = qcamera.scale(scales_query[level])
+
+            if self.conf.compute_uncertainty:
+                W_ref_query = (weights_ref[level], weights_query[level])
+            else:
+                W_ref_query = None
+
+            logger.debug(f'Optimizing at level {level}.')
+            opt = self.optimizer
+            if isinstance(opt, (tuple, list)):
+                if self.conf.layer_indices:
+                    opt = opt[self.conf.layer_indices[level]]
+                else:
+                    opt = opt[level]
+
+            depth_query_scaled = depth_query
+            _, H, W = F_q.shape
+            depth_query_scaled = F.interpolate(depth_query.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0)
+            T_opt, fail = opt.run(p3d, F_ref, F_q, T_i.to(F_q),
+                                  qcamera_feat.to(F_q),
+                                  W_ref_query=W_ref_query, 
+                                  D_query=depth_query_scaled)
+
+            self.log_optim(i=idx, T_opt=T_opt, fail=fail, level=level,
+                           p3d=p3d, p3d_ids=p3dids,
+                           T_init=T_init, camera=qcamera_feat)
+            if fail:
+                return {**ret, 'success': False}
+            T_i = T_opt
+
+        # Compute relative pose w.r.t. initilization
+        T_opt = T_opt.cpu().double()
+        dR, dt = (T_init.inv() @ T_opt).magnitude()
+        return {
+            **ret,
+            'success': True,
+            'T_refined': T_opt,
+            'diff_R': dR.item(),
+            'diff_t': dt.item(),
+        }
+
+
+
+    def augment_depth(self, features, depth, scale):
+        import pdb; pdb.set_trace()
+        for level in range(len(features)):
+            _, H, W = features[level].shape
+            depth_scaled = F.interpolate(depth.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0)
+            features[level] = torch.cat((features[level], depth_scaled), dim=0)
+        return features
 
     def extract_reference_features(self, dbids, pose=None, reference_image=None):
         loc = None

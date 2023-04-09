@@ -49,7 +49,7 @@ def get_nerf_image(testbed, nerf_pose, camera, depth=False, alpha_thresh=0.0):
     if depth:
         testbed.render_mode = testbed.render_mode.Depth
         nerf_img = testbed.render(width, height, spp, True)
-        nerf_img = nerf_img[:, :, :3]
+        nerf_img = nerf_img[:, :, 0]
         testbed.render_mode = testbed.render_mode.Shade
     else:
         nerf_img = testbed.render(width, height, spp, True)
