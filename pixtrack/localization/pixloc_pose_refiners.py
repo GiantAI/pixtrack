@@ -332,11 +332,11 @@ class PoseTrackerRefiner(BaseRefiner):
 
             depth_query_scaled = depth_query
             _, H, W = F_q.shape
-            depth_query_scaled = F.interpolate(depth_query.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0)
+            depth_query_scaled = F.interpolate(depth_query.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0).float()
             T_opt, fail = opt.run(p3d, F_ref, F_q, T_i.to(F_q),
                                   qcamera_feat.to(F_q),
                                   W_ref_query=W_ref_query,
-                                  D_query=depth_query_scaled)
+                                  D_query=depth_query_scaled.to(F_q))
 
             self.log_optim(i=idx, T_opt=T_opt, fail=fail, level=level,
                            p3d=p3d, p3d_ids=p3dids,

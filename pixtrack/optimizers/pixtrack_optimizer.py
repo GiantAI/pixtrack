@@ -16,8 +16,17 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
 
         p3D_q = T_w2q * p3D
         p2D, visible = camera.world2image(p3D_q)
-        F_p2D_raw, valid, gradients = self.interpolator(
-            F_query, p2D, return_gradients=do_gradients)
+
+        FD_query = torch.cat((F_query, D_query), dim=0)
+
+        FD_p2D_raw, valid, gradients_fd = self.interpolator(
+            FD_query, p2D, return_gradients=do_gradients)
+
+        F_p2D_raw = FD_p2D_raw[:, :-1]
+        D_p2D_raw = FD_p2D_raw[:, -1].unsqueeze(1)
+        gradients = gradients_fd[:, :-1]
+        gradients_depth = gradients_fd[:, -1].unsqueeze(1)
+
         valid = valid & visible
 
         if confidences is not None:
@@ -35,15 +44,19 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
             F_p2D = F_p2D_raw
 
         res = F_p2D - F_ref
+        res_depth = D_p2D_raw - p3D_q[:, 2].unsqueeze(-1)
+
         info = (p3D_q, F_p2D_raw, gradients)
-        return res, valid, weight, F_p2D, info
+        info_depth = (res_depth, D_p2D_raw, gradients_depth)
+
+        return res, valid, weight, F_p2D, info, info_depth
 
     def residual_jacobian(
             self, T_w2q: Pose, camera: Camera, p3D: Tensor,
             F_ref: Tensor, F_query: Tensor, D_query: Tensor,
             confidences: Optional[Tuple[Tensor, Tensor]] = None):
 
-        res, valid, weight, F_p2D, info = self.residuals(
+        res, valid, weight, F_p2D, info, info_depth = self.residuals(
             T_w2q, camera, p3D, F_ref, F_query, D_query, confidences, True)
         J, _ = self.jacobian(T_w2q, camera, *info)
         return res, valid, weight, F_p2D, J
