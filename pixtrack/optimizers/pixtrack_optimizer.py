@@ -51,6 +51,24 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
 
         return res, valid, weight, F_p2D, info, info_depth
 
+    def jacobian_depth(
+            self, T_w2q: Pose, camera: Camera,
+            p3D_q: Tensor, F_p2D_raw: Tensor, J_f_p2D: Tensor):
+
+        J_p3D_T = T_w2q.J_transform(p3D_q)
+        J_p2D_p3D, _ = camera.J_world2image(p3D_q)
+
+        if self.normalize:
+            J_f_p2D = J_normalization(F_p2D_raw) @ J_f_p2D
+
+        J_p2D_T = J_p2D_p3D @ J_p3D_T
+        J = J_f_p2D @ J_p2D_T
+
+        # Extra term for depth loss
+        J = J - J_p3D_T[:, 2].unsqueeze(1)
+
+        return J, J_p2D_T
+
     def residual_jacobian(
             self, T_w2q: Pose, camera: Camera, p3D: Tensor,
             F_ref: Tensor, F_query: Tensor, D_query: Tensor,
@@ -59,6 +77,14 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
         res, valid, weight, F_p2D, info, info_depth = self.residuals(
             T_w2q, camera, p3D, F_ref, F_query, D_query, confidences, True)
         J, _ = self.jacobian(T_w2q, camera, *info)
+
+        p3D_q = info[0]
+        res_depth, D_p2D_raw, gradients_depth = info_depth
+
+        J_d, _ = self.jacobian_depth(T_w2q, camera, p3D_q, D_p2D_raw, gradients_depth)
+
+        J_fd = torch.cat((J, J_d), dim=1)
+        res_fd = torch.cat((res, res_depth), dim=1)
         return res, valid, weight, F_p2D, J
 
 class PixTrackOptimizer(LearnedOptimizer):
