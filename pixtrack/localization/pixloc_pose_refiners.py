@@ -209,60 +209,23 @@ class PoseTrackerRefiner(BaseRefiner):
         reference_images: List[np.ndarray] = None,
         dynamic_id: int = None,
     ) -> Dict:
-        dbid_to_p3dids = self.model3d.get_dbid_to_p3dids(p3did_to_dbids)
-        ref_ids = list(dbid_to_p3dids.keys())
-        assert len(ref_ids) == 1
-        ref_id = ref_ids[0]
         if multiscales is None:
             multiscales = [1]
-
-        rnames = [self.model3d.dbs[i].name for i in dbid_to_p3dids.keys()]
-        images_ref = reference_images
 
         for image_scale in multiscales:
             # Compute the reference observations
             # TODO: can we compute this offline before hand?
-            if images_ref is not None:
-                dbid_p3did_to_feats = dict()
-                for idx, dbid in enumerate(dbid_to_p3dids):
-                    p3dids = dbid_to_p3dids[dbid]
-
-                    features_ref_dense, scales_ref = self.dense_feature_extraction(
-                        images_ref[idx], rnames[idx], image_scale
-                    )
-                    dbid_p3did_to_feats[dbid] = self.interp_sparse_observations(
-                        features_ref_dense, scales_ref, dbid, p3dids, pose
-                    )
-                    del features_ref_dense
-
-                p3dids = list(dbid_p3did_to_feats[ref_id].keys())
-                p3did_to_feat = [
-                    tuple(dbid_p3did_to_feats[ref_id][p3did]) for p3did in p3dids
-                ]
-            else:
-                if dynamic_id is None:
-                    if ref_id in self.features_dicts:
-                        features_dict = self.features_dicts[ref_id]
-                    else:
-                        features_dict = self.read_features(ref_id)
-                    self.features_dicts[ref_id] = features_dict
-                else:
-                    features_dict = self.features_dicts[dynamic_id]["features"]
-
-                p3dids = features_dict[str(image_scale)]["p3dids"]
-                p3did_to_feat = features_dict[str(image_scale)]["p3did_to_feat"]
+            features_dict = self.features_dicts[dynamic_id]["features"]
+            p3dids = features_dict[str(image_scale)]["p3dids"]
+            p3did_to_feat = features_dict[str(image_scale)]["p3did_to_feat"]
 
             features_query, scales_query = self.dense_feature_extraction(
                 image_query, qname, image_scale
             )
 
-            try:
-                ret = self.refine_pose_using_features(
-                    features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids
-                )
-            except:
-                ret = {}
-                ret["success"] = False
+            ret = self.refine_pose_using_features(
+                features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids
+            )
             if not ret["success"]:
                 logger.info(f"Optimization failed for query {qname}")
                 break
@@ -270,7 +233,7 @@ class PoseTrackerRefiner(BaseRefiner):
                 T_init = ret["T_refined"]
         return ret
 
-    def extract_reference_features(self, dbids, pose=None, reference_image=None):
+    def extract_reference_features(self, dbids, pose=None, reference_image=None, depth_image=None):
         loc = None
         inliers = None
         p3did_to_dbids = self.model3d.get_p3did_to_dbids(
@@ -323,7 +286,7 @@ class PoseTrackerRefiner(BaseRefiner):
             features[str(image_scale)]["p3dids"] = p3dids
             features[str(image_scale)]["p3did_to_feat"] = p3did_to_feat
         return features
-
+    
     def interp_sparse_observations(
         self,
         feature_maps: List[torch.Tensor],

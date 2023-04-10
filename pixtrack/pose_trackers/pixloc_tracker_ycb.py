@@ -10,6 +10,7 @@ from pixloc.utils.data import Paths
 from pixtrack.utils.pose_utils import (
     geodesic_distance_for_rotations,
     get_camera_in_world_from_pixpose,
+    get_world_in_camera_from_pixpose
 )
 from pixtrack.pose_trackers.base_pose_tracker import PoseTracker
 from pixtrack.localization.pixloc_pose_refiners import PoseTrackerLocalizer
@@ -97,6 +98,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.misses = 0
         self.cache_hit = False
         self.relocalization_count = 0
+        self.setup_sfm_for_visibility()
 
     def relocalize(self, query_path):
         gt_pose = self.gt_pose
@@ -113,6 +115,63 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.set_reference_ids()
         self.relocalization_count += 1
         return
+
+    def get_visible_p3ds(
+        self, pose, depth_image,
+        min_depth_threshold=5e-3, alpha_threshold=0.5, depth_closeness_threshold=1e-3
+    ):
+        """
+        
+        Args:
+            min_depth_threshold: minimum depth of any point. Depth lower than this is considered noise
+            alpha_threshold: Threshold over the visibility of the point
+            depth_closeness_threshold: The threshold to decide whether a 3d point is visible in the image using depth
+        """
+        wIc = get_world_in_camera_from_pixpose(pose)
+        points3d_in_sfm_camera_frame = np.dot(
+            get_world_in_camera_from_pixpose(pose), self.points3d_in_sfm.T
+        ).T[:, :-1]
+
+        camera = self.localizer.model3d.cameras[1]
+        camera = ColCamera(
+            np.linalg.inv(wIc),
+            camera.model,
+            int(camera.width),
+            int(camera.height),
+            camera.params
+        )
+        camera = PixCamera.from_colmap(camera)
+        camera = camera.scale(self.reference_scale)
+        pts_in_image = camera.world2image(points3d_in_sfm_camera_frame)
+        project_image_points = pts_in_image[0].cpu().numpy()
+        height, width = depth_image.shape[:2]
+        #visible_project_image_points = project_image_points[np.where((project_image_points[:, 1] < width) & (project_image_points[:, 0] < height))]
+        visible_project_image_points = project_image_points[np.where((project_image_points[:, 1] < height) & (project_image_points[:, 0] < width))]
+        nerf2sfm_scale = self.nerf2sfm["avglen"] / 3.0
+        sfm_pts_in_nerf = points3d_in_sfm_camera_frame
+        depths_at_points = depth_image[
+            visible_project_image_points[:, 1].astype(int), visible_project_image_points[:, 0].astype(int), 0]
+        alphas_at_points = depth_image[
+            visible_project_image_points[:, 1].astype(int), visible_project_image_points[:, 0].astype(int), -1]
+        
+        depths_at_points *= nerf2sfm_scale
+        visible_indices = np.where(
+            (depths_at_points >= min_depth_threshold) &\
+            (alphas_at_points >= alpha_threshold) & \
+            np.isclose(sfm_pts_in_nerf[:, 2], depths_at_points, atol=depth_closeness_threshold)
+        )[0]
+        return self.point_ids[visible_indices]
+
+    def setup_sfm_for_visibility(self):
+        point_ids = []
+        points3d_in_sfm = []
+        for point_id in self.localizer.model3d.points3D:
+            point_ids.append(point_id)
+            points3d_in_sfm.append(self.localizer.model3d.points3D[point_id].xyz)
+
+        points3d_in_sfm = np.array(points3d_in_sfm)
+        self.points3d_in_sfm = np.hstack((points3d_in_sfm, np.ones((points3d_in_sfm.shape[0], 1))))
+        self.point_ids = point_ids
 
     def set_reference_ids(self):
         curr_pose = self.pose
@@ -176,27 +235,32 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
         return nerf_img
 
-    def get_mask(self, pose):
+    def get_depth_image(self, pose):
         cIw = get_camera_in_world_from_pixpose(pose)
         nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
-        depth = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
+        depth_image = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
+        return depth_image
+
+    def get_mask(self, depth_image):
         kernel = np.ones((5, 5), np.uint8)
-        img_erosion = cv2.erode((depth != 0).astype(np.uint8), kernel, iterations=1)
+        img_erosion = cv2.erode((depth_image != 0).astype(np.uint8), kernel, iterations=1)
         img_dilation = cv2.dilate(img_erosion, kernel, iterations=5)
         return img_dilation
-
-    def create_dynamic_reference_image(self, pose):
+    
+    def create_dynamic_reference_image(self, pose, depth_image):
         nerf_img = self.get_reference_image(pose)
         dynamic_id = hash(str(pose.numpy()[0]))
+        visible_p3ds = self.get_visible_p3ds(
+            pose=pose, depth_image=depth_image)
         features = self.localizer.refiner.extract_reference_features(
             self.reference_ids, pose, nerf_img
         )
         return dynamic_id, features
 
-    def get_dynamic_id(self, pose):
+    def get_dynamic_id(self, pose, depth_image):
         features_dicts = self.localizer.refiner.features_dicts
         if self.dynamic_id is None:
-            self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
+            self.dynamic_id, features = self.create_dynamic_reference_image(self.pose, depth_image)
             features_dicts[self.dynamic_id] = {}
             features_dicts[self.dynamic_id]["pose"] = self.pose
             features_dicts[self.dynamic_id]["features"] = features
@@ -228,11 +292,11 @@ class PixLocPoseTrackerYCB(PoseTracker):
             # print(gdists)
             # print(self.localizer.refiner.features_dicts.keys())
             self.cache_hit = False
-            self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
+            self.dynamic_id, features = self.create_dynamic_reference_image(pose=self.pose, depth_image=depth_image)
             features_dicts[self.dynamic_id] = {}
             features_dicts[self.dynamic_id]["pose"] = self.pose
             features_dicts[self.dynamic_id]["features"] = features
-            features_dicts[self.dynamic_id]["ref_ids"] = self.update_reference_ids()
+            features_dicts[self.dynamic_id]["ref_ids"] = None #self.update_reference_ids()
             self.misses += 1
             self.cache_hit = True
 
@@ -246,10 +310,12 @@ class PixLocPoseTrackerYCB(PoseTracker):
             self.relocalize(query_path)
             self.cold_start = False
 
-        mask = self.get_mask(self.pose)
+        depth_image = self.get_depth_image(self.pose)
+        import pdb; pdb.set_trace()
+        mask = self.get_mask(depth_image)
         query_image = query_image * mask
 
-        self.dynamic_id = self.get_dynamic_id(self.pose)
+        self.dynamic_id = self.get_dynamic_id(pose=self.pose, depth_image=depth_image)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
         rot = R.from_matrix(rotation)
