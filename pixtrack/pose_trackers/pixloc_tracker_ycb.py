@@ -143,21 +143,23 @@ class PixLocPoseTrackerYCB(PoseTracker):
         camera = PixCamera.from_colmap(camera)
         camera = camera.scale(self.reference_scale)
         pts_in_image = camera.world2image(points3d_in_sfm_camera_frame)
-        project_image_points = pts_in_image[0].cpu().numpy()
+        import pdb; pdb.set_trace()
+
         height, width = depth_image.shape[:2]
+
         #visible_project_image_points = project_image_points[np.where((project_image_points[:, 1] < width) & (project_image_points[:, 0] < height))]
         visible_project_image_points = project_image_points[np.where((project_image_points[:, 1] < height) & (project_image_points[:, 0] < width))]
         nerf2sfm_scale = self.nerf2sfm["avglen"] / 3.0
         sfm_pts_in_nerf = points3d_in_sfm_camera_frame
         depths_at_points = depth_image[
-            visible_project_image_points[:, 1].astype(int), visible_project_image_points[:, 0].astype(int), 0]
-        alphas_at_points = depth_image[
-            visible_project_image_points[:, 1].astype(int), visible_project_image_points[:, 0].astype(int), -1]
+            visible_project_image_points[:, 1].astype(int), visible_project_image_points[:, 0].astype(int)]
+        #alphas_at_points = depth_image[
+        #    visible_project_image_points[:, 1].astype(int), visible_project_image_points[:, 0].astype(int), -1]
         
         depths_at_points *= nerf2sfm_scale
         visible_indices = np.where(
             (depths_at_points >= min_depth_threshold) &\
-            (alphas_at_points >= alpha_threshold) & \
+            #(alphas_at_points >= alpha_threshold) & \
             np.isclose(sfm_pts_in_nerf[:, 2], depths_at_points, atol=depth_closeness_threshold)
         )[0]
         return self.point_ids[visible_indices]
@@ -235,15 +237,16 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
         return nerf_img
 
-    def get_depth_image(self, pose):
+    def get_depth(self, pose):
         cIw = get_camera_in_world_from_pixpose(pose)
         nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
-        depth_image = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
-        return depth_image
+        depth = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
+        depth = depth * self.nerf2sfm['avglen'] / 3.
+        return depth
 
-    def get_mask(self, depth_image):
+    def get_mask(self, depth):
         kernel = np.ones((5, 5), np.uint8)
-        img_erosion = cv2.erode((depth_image != 0).astype(np.uint8), kernel, iterations=1)
+        img_erosion = cv2.erode((depth != 0).astype(np.uint8), kernel, iterations=1)
         img_dilation = cv2.dilate(img_erosion, kernel, iterations=5)
         return img_dilation
     
@@ -288,9 +291,6 @@ class PixLocPoseTrackerYCB(PoseTracker):
             self.hits += 1
             self.cache_hit = True
         else:
-            # print('New reference frame! Distance: %f, Threshold: %f' % (gdists[dids[0]], self.THRESH))
-            # print(gdists)
-            # print(self.localizer.refiner.features_dicts.keys())
             self.cache_hit = False
             self.dynamic_id, features = self.create_dynamic_reference_image(pose=self.pose, depth_image=depth_image)
             features_dicts[self.dynamic_id] = {}
@@ -303,19 +303,20 @@ class PixLocPoseTrackerYCB(PoseTracker):
         return self.dynamic_id
 
     def refine(self, query):
-        query_path, query_image, gt_pose, gt_camera = query
+        query_path, query_image, query_depth, gt_pose, gt_camera = query
         self.gt_pose = gt_pose
         self.gt_camera = gt_camera
         if self.cold_start:
             self.relocalize(query_path)
             self.cold_start = False
 
-        depth_image = self.get_depth_image(self.pose)
-        import pdb; pdb.set_trace()
-        mask = self.get_mask(depth_image)
-        query_image = query_image * mask
-
-        self.dynamic_id = self.get_dynamic_id(pose=self.pose, depth_image=depth_image)
+        reference_depth = self.get_depth(self.pose)
+        mask = self.get_mask(reference_depth)
+        query_image = query_image * mask[:, :, np.newaxis]
+        query_depth = query_depth * mask
+        query_depth = torch.tensor(query_depth).cuda()
+        self.dynamic_id = self.get_dynamic_id(pose=self.pose, depth_image=reference_depth)
+        #self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
         rot = R.from_matrix(rotation)
@@ -333,6 +334,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
                 pose_init,
                 [ref_id],
                 image_query=query_image,
+                depth_query=query_depth,
                 pose=self.pose,
                 reference_images_raw=None,
                 dynamic_id=self.dynamic_id,

@@ -40,6 +40,7 @@ class YCBVideoIterator:
         path = self.ycb_root / "data" / sequence / f"{frame}-color.png"
         query_image = read_image(path).astype(np.float32)
         semseg = (query.label == self.object_id).astype(np.float32)[:, :, np.newaxis]
+        query_depth = query.depth / query.meta['factor_depth']
         # query_image = query_image * semseg
 
         intrinsics = query.meta["intrinsic_matrix"]
@@ -69,7 +70,7 @@ class YCBVideoIterator:
         pixcamera = PixCamera.from_colmap(camera)
 
         self.idx += 1
-        return path, query_image, pixpose, pixcamera
+        return path, query_image, query_depth, pixpose, pixcamera
 
 
 class ImagePathIterator:
