@@ -35,7 +35,7 @@ import tqdm
 
 
 class PixLocPoseTrackerYCB(PoseTracker):
-    def __init__(self, data_path, loc_path, eval_path, object_path, debug=False):
+    def __init__(self, data_path, loc_path, eval_path, object_path, use_depth=True, debug=False):
         default_paths = Paths(
             query_images="query/",
             reference_images=loc_path,
@@ -88,6 +88,8 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf2sfm_path = Path(data_path) / "nerf2sfm.pkl"
         self.reference_scale = 0.3
         self.localizer.refiner.reference_scale = self.reference_scale
+        for opt in self.localizer.optimizer:
+            opt.use_depth = use_depth
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         aabb = get_nerf_aabb_from_sfm(os.path.join(loc_path, "aug_sfm"), nerf2sfm_path)
         self.testbed = initialize_ingp(str(nerf_path), aabb)
@@ -323,6 +325,7 @@ if __name__ == "__main__":
     parser.add_argument("--out_dir", default="ycb_7")
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("--use_depth", action="store_true", default=False)
     args = parser.parse_args()
     # obj_path = Path(os.environ["OBJECT_PATH"])
     obj_path = args.object_path
@@ -336,6 +339,7 @@ if __name__ == "__main__":
         eval_path=str(eval_path),
         loc_path=str(loc_path),
         object_path=obj_path,
+        use_depth=args.use_depth,
         debug=args.debug,
     )
     tracker.run(args.query, max_frames=args.frames)

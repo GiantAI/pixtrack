@@ -45,7 +45,7 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
             F_p2D = F_p2D_raw
 
         res = F_p2D - F_ref
-        res_depth = D_p2D_raw - p3D_q[:, 2].unsqueeze(-1)
+        res_depth = (D_p2D_raw - p3D_q[:, 2].unsqueeze(-1)) * 2.
 
         info = (p3D_q, F_p2D_raw, gradients)
         info_depth = (res_depth, D_p2D_raw, gradients_depth)
@@ -86,10 +86,10 @@ class DirectAbsoluteCostDepth(DirectAbsoluteCost):
 
         J_fd = torch.cat((J, J_d), dim=1)
         res_fd = torch.cat((res, res_depth), dim=1)
-        if False:
+        if self.use_depth:
             J = J_fd
             res = res_fd
-        if True:
+        if False:
             J = J_d
             res = res_depth
 
@@ -118,6 +118,7 @@ class PixTrackOptimizer(LearnedOptimizer):
         if not isinstance(self.cost_fn, DirectAbsoluteCostDepth):
              self.cost_fn = DirectAbsoluteCostDepth(self.cost_fn.interpolator,
                                normalize=self.cost_fn.normalize)
+             self.cost_fn.use_depth = self.use_depth
 
         T = T_init
         J_scaling = None
