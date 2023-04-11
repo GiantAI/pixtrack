@@ -35,7 +35,7 @@ import tqdm
 
 
 class PixLocPoseTrackerYCB(PoseTracker):
-    def __init__(self, data_path, loc_path, eval_path, object_path, debug=False):
+    def __init__(self, data_path, loc_path, eval_path, object_path, use_depth=True, debug=False):
         default_paths = Paths(
             query_images="query/",
             reference_images=loc_path,
@@ -88,6 +88,8 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf2sfm_path = Path(data_path) / "nerf2sfm.pkl"
         self.reference_scale = 0.3
         self.localizer.refiner.reference_scale = self.reference_scale
+        for opt in self.localizer.optimizer:
+            opt.use_depth = use_depth
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         aabb = get_nerf_aabb_from_sfm(os.path.join(loc_path, "aug_sfm"), nerf2sfm_path)
         self.testbed = initialize_ingp(str(nerf_path), aabb)
@@ -97,6 +99,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.misses = 0
         self.cache_hit = False
         self.relocalization_count = 0
+        self.occlusion_threshold = 0.05
 
     def relocalize(self, query_path):
         gt_pose = self.gt_pose
@@ -176,14 +179,23 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
         return nerf_img
 
-    def get_mask(self, pose):
+    def get_depth(self, pose):
         cIw = get_camera_in_world_from_pixpose(pose)
         nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
         depth = get_nerf_image(self.testbed, nerf_pose, self.camera, depth=True)
+        depth = depth * self.nerf2sfm['avglen'] / 3.
+        return depth
+
+    def get_mask(self, depth):
         kernel = np.ones((5, 5), np.uint8)
         img_erosion = cv2.erode((depth != 0).astype(np.uint8), kernel, iterations=1)
         img_dilation = cv2.dilate(img_erosion, kernel, iterations=5)
         return img_dilation
+
+    def get_mask_eroded(self, mask):
+        kernel = np.ones((5, 5), np.uint8)
+        img_erosion = cv2.erode(mask, kernel, iterations=10)
+        return img_erosion
 
     def create_dynamic_reference_image(self, pose):
         nerf_img = self.get_reference_image(pose)
@@ -224,9 +236,6 @@ class PixLocPoseTrackerYCB(PoseTracker):
             self.hits += 1
             self.cache_hit = True
         else:
-            # print('New reference frame! Distance: %f, Threshold: %f' % (gdists[dids[0]], self.THRESH))
-            # print(gdists)
-            # print(self.localizer.refiner.features_dicts.keys())
             self.cache_hit = False
             self.dynamic_id, features = self.create_dynamic_reference_image(self.pose)
             features_dicts[self.dynamic_id] = {}
@@ -239,16 +248,40 @@ class PixLocPoseTrackerYCB(PoseTracker):
         return self.dynamic_id
 
     def refine(self, query):
-        query_path, query_image, gt_pose, gt_camera = query
+        query_path, query_image, query_depth, gt_pose, gt_camera = query
         self.gt_pose = gt_pose
         self.gt_camera = gt_camera
         if self.cold_start:
             self.relocalize(query_path)
             self.cold_start = False
 
-        mask = self.get_mask(self.pose)
-        query_image = query_image * mask
+        reference_depth = self.get_depth(self.pose)
+        mask = self.get_mask(reference_depth)
+        query_image = query_image * mask[:, :, np.newaxis]
+        query_depth = query_depth * mask
+        height, width = query_depth.shape
+        occluded_query_depth = query_depth.copy()
+        indices = ((height//2)-100), (height//2)-70, (width//2), (width//2) + 300
 
+        occluded_query_depth[indices[0]:indices[1], indices[2]:indices[3]] = reference_depth[indices[0]:indices[1], indices[2]:indices[3]] - 0.20
+
+        mask_eroded = self.get_mask_eroded(mask)
+        depth_difference = reference_depth - occluded_query_depth
+        depth_difference += abs(depth_difference.min())
+        indices_with_high_val = np.where(
+            ((reference_depth - occluded_query_depth) > self.occlusion_threshold) & (mask_eroded)
+        )
+        new_mask_with_occlusion = mask.copy()
+        new_mask_with_occlusion[indices_with_high_val] = 0.0
+        new_rgb = query_image * new_mask_with_occlusion[:, :, np.newaxis]
+        cv2.imwrite("masked_query_depth.png", 255*(occluded_query_depth / occluded_query_depth.max()))
+        cv2.imwrite("query_depth.png", 255*(query_depth / query_depth.max()))
+        cv2.imwrite("reference_depth.png", 255*(reference_depth / reference_depth.max()))
+        cv2.imwrite("depth_difference.png", 255*(depth_difference / depth_difference.max()))
+        cv2.imwrite("new_rgb.png", new_rgb) 
+        cv2.imwrite("old_rgb.png", query_image) 
+
+        query_depth = torch.tensor(query_depth).cuda()
         self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
@@ -267,6 +300,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
                 pose_init,
                 [ref_id],
                 image_query=query_image,
+                depth_query=query_depth,
                 pose=self.pose,
                 reference_images_raw=None,
                 dynamic_id=self.dynamic_id,
@@ -319,6 +353,7 @@ if __name__ == "__main__":
     parser.add_argument("--out_dir", default="ycb_7")
     parser.add_argument("--frames", type=int, default=None)
     parser.add_argument("--debug", action="store_true", default=False)
+    parser.add_argument("--use_depth", action="store_true", default=False)
     args = parser.parse_args()
     # obj_path = Path(os.environ["OBJECT_PATH"])
     obj_path = args.object_path
@@ -332,6 +367,7 @@ if __name__ == "__main__":
         eval_path=str(eval_path),
         loc_path=str(loc_path),
         object_path=obj_path,
+        use_depth=args.use_depth,
         debug=args.debug,
     )
     tracker.run(args.query, max_frames=args.frames)
