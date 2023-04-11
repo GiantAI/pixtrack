@@ -35,7 +35,7 @@ import tqdm
 
 
 class PixLocPoseTrackerYCB(PoseTracker):
-    def __init__(self, data_path, loc_path, eval_path, object_path, use_depth=True, debug=False):
+    def __init__(self, data_path, loc_path, eval_path, object_path, use_depth=True, use_occlusion_mask=True, debug=False):
         default_paths = Paths(
             query_images="query/",
             reference_images=loc_path,
@@ -90,6 +90,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         self.localizer.refiner.reference_scale = self.reference_scale
         for opt in self.localizer.optimizer:
             opt.use_depth = use_depth
+            opt.use_occlusion_mask = use_occlusion_mask
         self.nerf2sfm = load_nerf2sfm(str(nerf2sfm_path))
         aabb = get_nerf_aabb_from_sfm(os.path.join(loc_path, "aug_sfm"), nerf2sfm_path)
         self.testbed = initialize_ingp(str(nerf_path), aabb)
@@ -247,6 +248,16 @@ class PixLocPoseTrackerYCB(PoseTracker):
 
         return self.dynamic_id
 
+    def get_occlusion_mask(self, mask, reference_depth, query_depth):
+        mask_eroded = self.get_mask_eroded(mask)
+        # Occluded points in query_depth will have lower values in the reference depth image.
+        indices_with_high_val = np.where(
+            ((reference_depth - query_depth) > self.occlusion_threshold) & (mask_eroded)
+        )
+        mask_with_occlusion = mask.copy()
+        mask_with_occlusion[indices_with_high_val] = 0.0
+        return mask_with_occlusion
+
     def refine(self, query):
         query_path, query_image, query_depth, gt_pose, gt_camera = query
         self.gt_pose = gt_pose
@@ -259,20 +270,12 @@ class PixLocPoseTrackerYCB(PoseTracker):
         mask = self.get_mask(reference_depth)
         query_image = query_image * mask[:, :, np.newaxis]
         query_depth = query_depth * mask
+        occlusion_mask = self.get_occlusion_mask(mask=mask, reference_depth=reference_depth, query_depth=query_depth)
+        """ Fake an occlusion mask by uncommentint the following lines
         height, width = query_depth.shape
         occluded_query_depth = query_depth.copy()
         indices = ((height//2)-100), (height//2)-70, (width//2), (width//2) + 300
-
-        occluded_query_depth[indices[0]:indices[1], indices[2]:indices[3]] = reference_depth[indices[0]:indices[1], indices[2]:indices[3]] - 0.20
-
-        mask_eroded = self.get_mask_eroded(mask)
-        depth_difference = reference_depth - occluded_query_depth
-        depth_difference += abs(depth_difference.min())
-        indices_with_high_val = np.where(
-            ((reference_depth - occluded_query_depth) > self.occlusion_threshold) & (mask_eroded)
-        )
-        new_mask_with_occlusion = mask.copy()
-        new_mask_with_occlusion[indices_with_high_val] = 0.0
+         occluded_query_depth[indices[0]:indices[1], indices[2]:indices[3]] = reference_depth[indices[0]:indices[1], indices[2]:indices[3]] - 0.20
         new_rgb = query_image * new_mask_with_occlusion[:, :, np.newaxis]
         cv2.imwrite("masked_query_depth.png", 255*(occluded_query_depth / occluded_query_depth.max()))
         cv2.imwrite("query_depth.png", 255*(query_depth / query_depth.max()))
@@ -280,6 +283,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         cv2.imwrite("depth_difference.png", 255*(depth_difference / depth_difference.max()))
         cv2.imwrite("new_rgb.png", new_rgb) 
         cv2.imwrite("old_rgb.png", query_image) 
+        """
 
         query_depth = torch.tensor(query_depth).cuda()
         self.dynamic_id = self.get_dynamic_id(self.pose)
@@ -304,6 +308,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
                 pose=self.pose,
                 reference_images_raw=None,
                 dynamic_id=self.dynamic_id,
+                occlusion_mask=occlusion_mask
             )
             rets[ref_id] = ret
             trackers[ref_id] = tracker

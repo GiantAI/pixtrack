@@ -113,7 +113,7 @@ class PixTrackOptimizer(LearnedOptimizer):
     def _run(self, p3D: Tensor, F_ref: Tensor, F_query: Tensor,
              T_init: Pose, camera: Camera, mask: Optional[Tensor] = None,
              W_ref_query: Optional[Tuple[Tensor, Tensor]] = None, 
-             D_query: Tensor = None):
+             D_query: Tensor = None, occlusion_mask: Tensor=None):
 
         if not isinstance(self.cost_fn, DirectAbsoluteCostDepth):
              self.cost_fn = DirectAbsoluteCostDepth(self.cost_fn.interpolator,

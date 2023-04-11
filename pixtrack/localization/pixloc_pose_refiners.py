@@ -104,6 +104,7 @@ class PoseTrackerLocalizer(Localizer):
         pose: Pose = None,
         reference_images_raw: List[np.ndarray] = None,
         dynamic_id: int = None,
+        occlusion_mask: np.ndarray = None,
     ):
         loc = None if self.logs is None else self.logs[name]
         ret = self.refiner.refine(
@@ -117,6 +118,7 @@ class PoseTrackerLocalizer(Localizer):
             pose=pose,
             reference_images=reference_images_raw,
             dynamic_id=dynamic_id,
+            occlusion_mask=occlusion_mask
         )
         return ret
 
@@ -148,6 +150,7 @@ class PoseTrackerRefiner(BaseRefiner):
         pose: Pose = None,
         reference_images: List[np.ndarray] = None,
         dynamic_id: int = None,
+        occlusion_mask: np.ndarray = None
     ) -> Dict:
         fail = {"success": False, "T_init": pose_init, "dbids": dbids}
         inliers = None
@@ -172,6 +175,7 @@ class PoseTrackerRefiner(BaseRefiner):
             pose,
             reference_images,
             dynamic_id,
+            occlusion_mask=occlusion_mask
         )
 
         ret = {**ret, "dbids": dbids}
@@ -214,6 +218,7 @@ class PoseTrackerRefiner(BaseRefiner):
         pose: Pose = None,
         reference_images: List[np.ndarray] = None,
         dynamic_id: int = None,
+        occlusion_mask: np.ndarray= None,
     ) -> Dict:
         dbid_to_p3dids = self.model3d.get_dbid_to_p3dids(p3did_to_dbids)
         ref_ids = list(dbid_to_p3dids.keys())
@@ -266,7 +271,7 @@ class PoseTrackerRefiner(BaseRefiner):
             #    features_query = self.augment_depth(features_query, depth_query, scales_query)
 
             ret = self.refine_pose_using_features(
-                features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query,
+                features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query, occlusion_mask=occlusion_mask
             )
             if not ret["success"]:
                 logger.info(f"Optimization failed for query {qname}")
@@ -282,7 +287,8 @@ class PoseTrackerRefiner(BaseRefiner):
                                    T_init: Pose,
                                    features_p3d: List[List[torch.Tensor]],
                                    p3dids: List[int],
-				   depth_query: torch.tensor) -> Dict:
+				   depth_query: torch.tensor, 
+                                   occlusion_mask: np.ndarray = None) -> Dict:
         """Perform the pose refinement using given dense query feature-map.
         """
         # decompose descriptors and uncertainities, normalize descriptors
