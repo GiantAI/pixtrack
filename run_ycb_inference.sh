@@ -1,4 +1,4 @@
-ROOT=/home/wayve/prajwal/pixtrack
+ROOT=/home/wayve/saurabh/pixtrack
 python3 pixtrack/pose_trackers/pixloc_tracker_ycb.py --object_path $1 --query $2 --out_dir $3
 python3 pixtrack/visualization/run_vis_on_poses.py --object_path $1 --out_dir $3 --pose_error
 cd $3/results
