@@ -32,6 +32,7 @@ import cv2
 import pickle as pkl
 import argparse
 import tqdm
+import kornia
 
 
 class PixLocPoseTrackerYCB(PoseTracker):
@@ -178,6 +179,16 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera)
         return nerf_img
 
+    def get_reference_camera_depth(self, pose):
+        cIw = get_camera_in_world_from_pixpose(pose)
+        nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
+        ref_camera = self.localizer.model3d.cameras[1]
+        ref_camera = PixCamera.from_colmap(ref_camera)
+        # ref_camera = self.ref_camera
+        ref_camera = ref_camera.scale(self.reference_scale)
+        nerf_img = get_nerf_image(self.testbed, nerf_pose, ref_camera, depth=True)
+        return nerf_img
+
     def get_depth(self, pose):
         cIw = get_camera_in_world_from_pixpose(pose)
         nerf_pose = sfm_to_nerf_pose(self.nerf2sfm, cIw)
@@ -195,7 +206,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
         nerf_img = self.get_reference_image(pose)
         dynamic_id = hash(str(pose.numpy()[0]))
         features = self.localizer.refiner.extract_reference_features(
-            self.reference_ids, pose, nerf_img
+            self.reference_ids, pose, nerf_img, self.reference_norms,
         )
         return dynamic_id, features
 
@@ -241,6 +252,16 @@ class PixLocPoseTrackerYCB(PoseTracker):
 
         return self.dynamic_id
 
+    def get_normals(self, depth):
+        fx, fy = self.camera.f
+        cx, cy = self.camera.c
+        intrinsics = torch.tensor([[fx, 0, cx], [0, fy, cy], [0, 0, 1]]).unsqueeze(0).cuda()
+        depth_tensor = torch.tensor(depth).unsqueeze(0).unsqueeze(0).cuda()
+        normals = kornia.geometry.depth.depth_to_normals(
+            camera_matrix=intrinsics, 
+            depth=depth_tensor)[0]
+        return normals
+
     def refine(self, query):
         query_path, query_image, query_depth, gt_pose, gt_camera = query
         self.gt_pose = gt_pose
@@ -249,11 +270,17 @@ class PixLocPoseTrackerYCB(PoseTracker):
             self.relocalize(query_path)
             self.cold_start = False
 
+        reference_cam_depth = self.get_reference_camera_depth(self.pose)
+        reference_norms = self.get_normals(reference_cam_depth)
         reference_depth = self.get_depth(self.pose)
         mask = self.get_mask(reference_depth)
         query_image = query_image * mask[:, :, np.newaxis]
         query_depth = query_depth * mask
         query_depth = torch.tensor(query_depth).cuda()
+        query_norms = self.get_normals(query_depth)
+
+        query_depth_tensors = torch.vstack((torch.tensor(query_depth).unsqueeze(0), query_norms))
+        self.reference_norms = reference_norms
         self.dynamic_id = self.get_dynamic_id(self.pose)
         translation = self.pose.numpy()[1]
         rotation = self.pose.numpy()[0]
@@ -272,7 +299,7 @@ class PixLocPoseTrackerYCB(PoseTracker):
                 pose_init,
                 [ref_id],
                 image_query=query_image,
-                depth_query=query_depth,
+                depth_query=query_depth_tensors,
                 pose=self.pose,
                 reference_images_raw=None,
                 dynamic_id=self.dynamic_id,

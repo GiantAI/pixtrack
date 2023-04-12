@@ -22,6 +22,7 @@ import copy
 import cv2
 from collections import defaultdict
 import h5py
+import einops
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +258,7 @@ class PoseTrackerRefiner(BaseRefiner):
 
                 p3dids = features_dict[str(image_scale)]["p3dids"]
                 p3did_to_feat = features_dict[str(image_scale)]["p3did_to_feat"]
+                p3did_to_norm = features_dict[str(image_scale)]["p3did_to_norm"]
 
             features_query, scales_query = self.dense_feature_extraction(
                 image_query, qname, image_scale
@@ -266,7 +268,7 @@ class PoseTrackerRefiner(BaseRefiner):
             #    features_query = self.augment_depth(features_query, depth_query, scales_query)
 
             ret = self.refine_pose_using_features(
-                features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query,
+                features_query, scales_query, qcamera, T_init, p3did_to_feat, p3dids, depth_query, p3did_to_norm
             )
             if not ret["success"]:
                 logger.info(f"Optimization failed for query {qname}")
@@ -282,14 +284,18 @@ class PoseTrackerRefiner(BaseRefiner):
                                    T_init: Pose,
                                    features_p3d: List[List[torch.Tensor]],
                                    p3dids: List[int],
-				   depth_query: torch.tensor) -> Dict:
+				   depth_query: torch.tensor,
+                                   normals_p3d: List[List[torch.Tensor]]) -> Dict:
         """Perform the pose refinement using given dense query feature-map.
         """
         # decompose descriptors and uncertainities, normalize descriptors
         weights_ref = []
         features_ref = []
+        normals_ref = []
         for level in range(len(features_p3d[0])):
             feats = torch.stack([feat[level] for feat in features_p3d], dim=0)
+            norms = torch.stack([norm[level] for norm in normals_p3d], dim=0)
+            norms = norms.to(self.device)
             feats = feats.to(self.device)
             if self.conf.compute_uncertainty:
                 feats, weight = feats[:, :-1], feats[:, -1:]
@@ -297,7 +303,9 @@ class PoseTrackerRefiner(BaseRefiner):
             if self.conf.normalize_descriptors:
                 feats = torch.nn.functional.normalize(feats, dim=1)
             assert not feats.requires_grad
+            assert not feats.requires_grad
             features_ref.append(feats)
+            normals_ref.append(norms)
 
         # query dense features decomposition and normalization
         features_query = [feat.to(self.device) for feat in features_query]
@@ -314,7 +322,7 @@ class PoseTrackerRefiner(BaseRefiner):
         ret = {'T_init': T_init}
         # We will start with the low res feature map first
         for idx, level in enumerate(reversed(range(len(features_query)))):
-            F_q, F_ref = features_query[level], features_ref[level]
+            F_q, F_ref, N_ref = features_query[level], features_ref[level], normals_ref[level]
             qcamera_feat = qcamera.scale(scales_query[level])
 
             if self.conf.compute_uncertainty:
@@ -330,13 +338,16 @@ class PoseTrackerRefiner(BaseRefiner):
                 else:
                     opt = opt[level]
 
-            depth_query_scaled = depth_query
             _, H, W = F_q.shape
-            depth_query_scaled = F.interpolate(depth_query.unsqueeze(0).unsqueeze(0), (H, W), mode='bilinear').squeeze(0).float()
+            depth_query_scaled = F.interpolate(depth_query.unsqueeze(0), 
+                    (H, W), 
+                    mode='nearest'
+                    ).squeeze(0).float()
             T_opt, fail = opt.run(p3d, F_ref, F_q, T_i.to(F_q),
                                   qcamera_feat.to(F_q),
                                   W_ref_query=W_ref_query,
-                                  D_query=depth_query_scaled.to(F_q))
+                                  D_query=depth_query_scaled.to(F_q),
+                                  N_ref=N_ref)
 
             self.log_optim(i=idx, T_opt=T_opt, fail=fail, level=level,
                            p3d=p3d, p3d_ids=p3dids,
@@ -364,7 +375,7 @@ class PoseTrackerRefiner(BaseRefiner):
             features[level] = torch.cat((features[level], depth_scaled), dim=0)
         return features
 
-    def extract_reference_features(self, dbids, pose=None, reference_image=None):
+    def extract_reference_features(self, dbids, pose=None, reference_image=None, norms=None):
         loc = None
         inliers = None
         p3did_to_dbids = self.model3d.get_p3did_to_dbids(
@@ -398,14 +409,15 @@ class PoseTrackerRefiner(BaseRefiner):
 
         for image_scale in multiscales:
             dbid_p3did_to_feats = dict()
+            dbid_p3did_to_norms = dict()
             for idx, dbid in enumerate(dbid_to_p3dids):
                 p3dids = dbid_to_p3dids[dbid]
 
                 features_ref_dense, scales_ref = self.dense_feature_extraction(
                     images_ref[idx], rnames[idx], image_scale
                 )
-                dbid_p3did_to_feats[dbid] = self.interp_sparse_observations(
-                    features_ref_dense, scales_ref, dbid, p3dids, pose
+                dbid_p3did_to_feats[dbid], dbid_p3did_to_norms[dbid] = self.interp_sparse_observations(
+                    features_ref_dense, scales_ref, dbid, p3dids, pose, norms,
                 )
                 del features_ref_dense
 
@@ -413,9 +425,14 @@ class PoseTrackerRefiner(BaseRefiner):
             p3did_to_feat = [
                 tuple(dbid_p3did_to_feats[dbids[0]][p3did]) for p3did in p3dids
             ]
+            p3did_to_norm = [
+                tuple(dbid_p3did_to_norms[dbids[0]][p3did]) for p3did in p3dids
+            ]
+
             features[str(image_scale)] = {}
             features[str(image_scale)]["p3dids"] = p3dids
             features[str(image_scale)]["p3did_to_feat"] = p3did_to_feat
+            features[str(image_scale)]["p3did_to_norm"] = p3did_to_norm
         return features
 
     def interp_sparse_observations(
@@ -425,6 +442,7 @@ class PoseTrackerRefiner(BaseRefiner):
         image_id: float,
         p3dids: List[int],
         pose: Pose = None,
+        norms: torch.Tensor = None,
     ) -> Dict[int, torch.Tensor]:
         image = self.model3d.dbs[image_id]
         camera = Camera.from_colmap(self.model3d.cameras[image.camera_id])
@@ -435,16 +453,33 @@ class PoseTrackerRefiner(BaseRefiner):
         p3d = np.array([self.model3d.points3D[p3did].xyz for p3did in p3dids])
         p3d_cam = T_w2cam * p3d
 
+        if norms is not None:
+            C, H, W = norms.shape
+            norms_r = einops.rearrange(norms, 'c h w -> (h w) c')
+            norms_r = T_w2cam.inv().cuda() * norms_r
+            norms = einops.rearrange(norms_r, '(h w) c -> c h w', c=C, h=H, w=W)
+
         # interpolate sparse descriptors and store
         feature_obs = []
+        normals_obs = []
         masks = []
         for i, (feats, sc) in enumerate(zip(feature_maps, feature_scales)):
             p2d_feat, valid = camera.scale(sc).world2image(p3d_cam)
             opt = self.optimizer
             opt = opt[len(opt) - i - 1] if isinstance(opt, (tuple, list)) else opt
+            if norms is not None:
+                _, Fh, Fl = feats.shape
+                norms_scaled = F.interpolate(
+                        norms.unsqueeze(0), 
+                        (Fh, Fl), 
+                        mode='nearest'
+                        ).float().squeeze()
+                n_obs, _, _ = opt.interpolator(norms_scaled, p2d_feat.to(feats))
             obs, mask, _ = opt.interpolator(feats, p2d_feat.to(feats))
             assert not obs.requires_grad
+            assert not n_obs.requires_grad
             feature_obs.append(obs)
+            normals_obs.append(n_obs)
             masks.append(mask & valid.to(mask))
 
         mask = torch.all(torch.stack(masks, dim=0), dim=0)
@@ -458,6 +493,20 @@ class PoseTrackerRefiner(BaseRefiner):
         feature_dict = {
             p3id: feature_obs[i] for i, p3id in enumerate(p3dids) if mask[i]
         }
+
+        if norms is not None:
+            # We can't stack features because they have different # of channels
+            normals_obs = [
+                [normals_obs[i][j] for i in range(len(feature_maps))]
+                for j in range(len(p3dids))
+            ]  # N x K x D
+
+            normals_dict = {
+                p3id: normals_obs[i] for i, p3id in enumerate(p3dids) if mask[i]
+            }
+            return feature_dict, normals_dict
+
+
 
         return feature_dict
 
