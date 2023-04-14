@@ -1,17 +1,22 @@
+import math 
+
 import torch
 import os
 import pickle as pkl
 import trimesh
 import numpy as np
+from tqdm import tqdm
+import argparse
+
 
 from pixtrack.utils.pose_utils import geodesic_distance_for_rotations
-from sklearn.neighbors import KDTree
+from pykdtree.kdtree import KDTree
 
 
 def get_vertices(mesh_path):
     object_mesh = trimesh.load(mesh_path)
     vertices = np.array(object_mesh.vertices)
-    vertices = np.hstack((vertices, np.ones((vertices.shape[0], 1))))
+    #vertices = np.hstack((vertices, np.ones((vertices.shape[0], 1))))
     return vertices
 
 
@@ -66,6 +71,20 @@ def similarity_transform(from_points, to_points):
     return R, c, t
 
 
+def lstsq_sphere_fitting(points):
+    # add column of ones to pos_xyz to construct matrix A
+    num_pts = points.shape[0]
+    A = np.ones((num_pts, 4))
+    A[:,0:3] = points
+
+    # construct vector f
+    f = np.sum(np.multiply(points, points), axis=1)
+    sol, residules, rank, singval = np.linalg.lstsq(A,f)
+
+    # solve the radius
+    radius = math.sqrt((sol[0]*sol[0]/4.0)+(sol[1]*sol[1]/4.0)+(sol[2]*sol[2]/4.0)+sol[3])
+
+    return radius, sol[0]/2.0, sol[1]/2.0, sol[2]/2.0
 
 
 def get_pose_offset(poses_file):
@@ -83,8 +102,26 @@ def get_pose_offset(poses_file):
     return pose_from_res_to_gt
 
 
-def get_metrics(results, tr_threshold, rot_threshold, add_tr_threshold):
-    vertices = get_vertices(results.get("mesh_path", "/mnt/remote/data/prajwal/YCB_Video_Dataset/models/035_power_drill/textured.obj"))
+def get_add_metric(gt_pts, predicted_pts):
+    distance = np.linalg.norm(gt_pts - predicted_pts, axis=1)
+    return np.mean(distance)
+
+
+
+def get_adds_metric(gt_pts, predicted_pts):
+    kdt = KDTree(gt_pts)
+    distance, _ = kdt.query(predicted_pts, k=1)
+    return np.mean(distance)
+
+
+def get_metrics(results):
+    object_path = results[next(iter(results))]["object_path"]
+    video_name = str(results[next(iter(results))]["query_path"]).split('/')[-2]
+    object_name = str(object_path).split('/')[-1]
+    vertices = get_vertices(object_path/"textured.obj")
+    radius, _, _, _ = lstsq_sphere_fitting(vertices)
+    vertices = np.hstack((vertices, np.ones((vertices.shape[0], 1))))
+    diameter = radius * 2 * 100
     distances = []
     add_ss = []
     pose_dists = []
@@ -96,7 +133,8 @@ def get_metrics(results, tr_threshold, rot_threshold, add_tr_threshold):
     add_vals = []
     adds_vals = []
     poses_results = results # results["estimation_results"]
-    for image_key in poses_results:
+    count = 1
+    for image_key in tqdm(poses_results):
         if (not poses_results[image_key]["success"]):
             relocalizations += 1
             #print(f"skipped {image_key}")
@@ -108,51 +146,66 @@ def get_metrics(results, tr_threshold, rot_threshold, add_tr_threshold):
         rot_dist = geodesic_distance_for_rotations(gt_pose_mat[:3, :3], aligned_res_pose[:3, :3]) * 180 / np.pi
         res_vertices = np.dot(pose_from_res_to_gt, np.dot(res_pose_mat, vertices.T)).T[:, :3] * 100
         gt_vertices = np.dot(gt_pose_mat, vertices.T).T[:, :3] * 100
-        add_val = get_add_metric(res_vertices, gt_vertices, add_threshold)
-        adds_val = get_adds_metric(res_vertices, gt_vertices, add_threshold)
-
-        l2_distances = np.linalg.norm(gt_vertices - res_vertices, axis=1)
+        add_val = get_add_metric(res_vertices, gt_vertices)
+        adds_val = get_adds_metric(gt_vertices, res_vertices)
+        l2_dist = np.linalg.norm(res_vertices - gt_vertices, axis=1).mean()
         pose_dists.append(tr_dist)
         add_vals.append(add_val)
         adds_vals.append(adds_val)
-        l2_dist = np.mean(l2_distances)
-        if tr_dist > tr_threshold or rot_dist > rot_threshold:
-            bad_count += 1
-            
         distances.append(l2_dist)
-    add_score = (add_vals < add_tr_threshold).sum() / count
-    adds_score = (adds_vals < add_tr_threshold).sum() / count
+        count += 1
         
     evaluation_results = {}
     evaluation_results["average_error_vertices"] = np.mean(distances)
+    evaluation_results["add_vals"] = np.array(add_vals)
+    evaluation_results["adds_vals"] = np.array(adds_vals)
+    evaluation_results["diameter"] = diameter
+    evaluation_results["total_count"] = count
     evaluation_results["max_error"] = np.max(distances)
     evaluation_results["max_translation_error"] = np.max(pose_dists)
     evaluation_results["average_translation_error_pose"] = np.mean(pose_dists)
-    evaluation_results["bad_count"] = bad_count
     evaluation_results["total_frames"] = len(results)
-    evaluation_results["accuracy"] = (1.0*(len(results) - bad_count))/(1.0*len(results) )
     evaluation_results["relocalizations"] = relocalizations
+    evaluation_results["object_name"] = object_name
+    evaluation_results["video_name"] = video_name
     return evaluation_results
 
 
 def save_metrics(metrics, path):
-    with open('filename.pickle', 'wb') as handle:
-        pickle.dump(a, handle, protocol=pickle.HIGHEST_PROTOCOL)
+    with open(os.path.join(path, 'metrics.pkl'), 'wb') as handle:
+        pkl.dump(metrics, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
 
 def compute_metrics_for_multiple_thresholds(result_information):
-    thresholds = {"tr_threshold":[0.03, 0.05, 0.08], "rot_threshold":[3, 5, 8]}
+    thresholds = [0.1, 0.15, 0.2]
     all_metrics = {}
-    for threshold_num in range(len(thresholds["tr_threshold"])):
-        tr_threshold = thresholds["tr_threshold"][threshold_num]
-        rot_threshold = thresholds["tr_threshold"][threshold_num]
-        metrics = get_metrics(result_information, tr_threshold, rot_threshold, tr_threshold)
-        all_metrics[f"{tr_threshold}"] = metrics
+    metrics = get_metrics(result_information)
+    all_metrics["metrics"] = metrics
+    for threshold_num in range(len(thresholds)):
+        add_vals = metrics["add_vals"]
+        adds_vals = metrics["adds_vals"]
+        diameter = metrics["diameter"]
+        count = metrics["total_count"]
+        add_score = (add_vals < (thresholds[threshold_num] * diameter)).sum() / count
+        adds_score = (adds_vals < (thresholds[threshold_num] * diameter)).sum() / count
+        print(add_score, adds_score, thresholds[threshold_num])
+        all_metrics[f"add_{thresholds[threshold_num]}"] = add_score
+        all_metrics[f"adds_{thresholds[threshold_num]}"] = adds_score
     return all_metrics
 
 
 if __name__ == "__main__":
-    results_file_path = "/mnt/remote/data/prajwal/pixtrack/results/003_cracker_box/ycb_16/poses.pkl"
-    result_information = get_results_info(results_file_path)
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--results_file_path',
+    )
+    args = parser.parse_args()
+    result_information = get_results_info(args.results_file_path)
     metrics = compute_metrics_for_multiple_thresholds(result_information)
-    save_metrics(metrics=metrics, path=os.path.join(outputs_path, result_information["object_name"], result_information["video_path"]))
+    object_name = metrics["metrics"]["object_name"]
+    video_name = metrics["metrics"]["video_name"]
+    base_path = "/home/wayve/saurabh/test_metric"
+    output_path = os.path.join(base_path, object_name, video_name)
+    os.makedirs(output_path, exist_ok=True)
+    save_metrics(metrics=metrics, path=output_path)
