@@ -97,7 +97,7 @@ def get_pose_offset(poses_file):
         from_trs.append(poses_file[image_key]["gt_pose"].t.cpu().numpy())
     R, c, t = similarity_transform(np.array(from_trs), np.array(to_trs))
     pose_from_res_to_gt = np.eye(4)
-    pose_from_res_to_gt[:3, :3] = R
+    pose_from_res_to_gt[:3, :3] = c * R
     pose_from_res_to_gt[:3, -1] = t
     return pose_from_res_to_gt
 
@@ -114,10 +114,10 @@ def get_adds_metric(gt_pts, predicted_pts):
     return np.mean(distance)
 
 
-def get_metrics(results):
+def get_metrics(results, object_name):
     object_path = results[next(iter(results))]["object_path"]
-    video_name = str(results[next(iter(results))]["query_path"]).split('/')[-2]
-    object_name = str(object_path).split('/')[-1]
+    object_name_in_res = str(object_path).split('/')[-1]
+    assert object_name.lower() in object_name_in_res.lower(), f"Mismatch in object names {object_name}, {object_name_in_res}"
     vertices = get_vertices(object_path/"textured.obj")
     radius, _, _, _ = lstsq_sphere_fitting(vertices)
     vertices = np.hstack((vertices, np.ones((vertices.shape[0], 1))))
@@ -126,7 +126,9 @@ def get_metrics(results):
     add_ss = []
     pose_dists = []
 
-    pose_from_res_to_gt = get_pose_offset(results)
+    #pose_from_res_to_gt = get_pose_offset(results)
+    #import pdb; pdb.set_trace()
+    pose_from_res_to_gt = np.eye(4)
     bad_count = 0
 
     relocalizations =0
@@ -153,6 +155,8 @@ def get_metrics(results):
         add_vals.append(add_val)
         adds_vals.append(adds_val)
         distances.append(l2_dist)
+        #if count > 100:
+        #    break
         count += 1
         
     evaluation_results = {}
@@ -166,8 +170,6 @@ def get_metrics(results):
     evaluation_results["average_translation_error_pose"] = np.mean(pose_dists)
     evaluation_results["total_frames"] = len(results)
     evaluation_results["relocalizations"] = relocalizations
-    evaluation_results["object_name"] = object_name
-    evaluation_results["video_name"] = video_name
     return evaluation_results
 
 
@@ -176,10 +178,10 @@ def save_metrics(metrics, path):
         pkl.dump(metrics, handle, protocol=pkl.HIGHEST_PROTOCOL)
 
 
-def compute_metrics_for_multiple_thresholds(result_information):
-    thresholds = [0.1, 0.15, 0.2]
+def compute_metrics_for_multiple_thresholds(result_information, object_name):
+    thresholds = [0.05, 0.1, 0.15, 0.2]
     all_metrics = {}
-    metrics = get_metrics(result_information)
+    metrics = get_metrics(result_information, object_name)
     all_metrics["metrics"] = metrics
     for threshold_num in range(len(thresholds)):
         add_vals = metrics["add_vals"]
@@ -191,21 +193,32 @@ def compute_metrics_for_multiple_thresholds(result_information):
         print(add_score, adds_score, thresholds[threshold_num])
         all_metrics[f"add_{thresholds[threshold_num]}"] = add_score
         all_metrics[f"adds_{thresholds[threshold_num]}"] = adds_score
+        all_metrics[f"distance_{thresholds[threshold_num]}"] = thresholds[threshold_num] * diameter
     return all_metrics
 
 
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--results_file_path',
-    )
-    args = parser.parse_args()
-    result_information = get_results_info(args.results_file_path)
-    metrics = compute_metrics_for_multiple_thresholds(result_information)
-    object_name = metrics["metrics"]["object_name"]
-    video_name = metrics["metrics"]["video_name"]
-    base_path = "/home/wayve/saurabh/test_metric"
-    output_path = os.path.join(base_path, object_name, video_name)
+def run_and_save_results(results_folder, object_name, exp_name):
+    result_file_path = os.path.join(args.results_folder, object_name, exp_name, "poses.pkl")
+    result_information = get_results_info(result_file_path)
+    metrics = compute_metrics_for_multiple_thresholds(result_information, object_name)
+    output_path = os.path.join(args.results_folder, object_name, exp_name)
     os.makedirs(output_path, exist_ok=True)
     save_metrics(metrics=metrics, path=output_path)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--results_folder',
+    )
+    args = parser.parse_args()
+    list_of_objects = os.listdir(args.results_folder)[::-1]
+    for object_name in list_of_objects:
+        exp_names = os.listdir(os.path.join(args.results_folder, object_name))
+        for exp_name in exp_names:
+            if os.path.exists(os.path.join(args.results_folder, object_name, exp_name, "metrics.pkl")):
+                print(f"skipping {object_name}, {exp_name}")
+                continue
+            print(f"Running metrics for {object_name} {exp_name}")
+            run_and_save_results(args.results_folder, object_name, exp_name)
+
